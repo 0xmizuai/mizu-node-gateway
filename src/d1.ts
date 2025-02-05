@@ -17,6 +17,7 @@ export async function getPools(env: Env): Promise<PoolConfig[]> {
     prices: row.prices as { input: number; output: number },
     contextLength: Number(row.context_length),
     status: Number(row.status),
+    databaseId: Number(row.database_id),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   }));
@@ -197,6 +198,7 @@ export async function updatePool(
     owner: existingPool.owner,
     prices: pool.prices ?? existingPool.prices,
     contextLength: existingPool.contextLength,
+    databaseId: existingPool.databaseId,
     status: pool.status ?? existingPool.status,
     createdAt: existingPool.createdAt,
     updatedAt: now,

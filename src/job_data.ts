@@ -8,7 +8,7 @@ export async function createPoolCacheDB(
   pool_id: number
 ): Promise<void> {
   // create database for each pool
-  const url = `https://api.cloudflare.com/client/v4/accounts/${c.env.CF_ACCOUNT_ID}/d1/database`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database`;
   const result = await fetch(url, {
     method: "POST",
     headers: {

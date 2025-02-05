@@ -6,6 +6,7 @@ CREATE TABLE pools (
     prices JSONB NOT NULL,
     contextLength INTEGER NOT NULL,
     status INTEGER NOT NULL,
+    databaseId INTEGER NOT NULL,
     createdAt INTEGER,
     updatedAt INTEGER
 );

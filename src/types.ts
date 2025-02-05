@@ -142,6 +142,7 @@ export interface PoolConfig extends PoolConfigInput {
   id: number;
   owner: string;
   status: number;
+  databaseId: number;
   createdAt?: number;
   updatedAt?: number;
 }
