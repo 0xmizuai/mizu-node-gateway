@@ -1,5 +1,9 @@
 import { md5 } from "hono/utils/crypto";
-import { GatewayServiceContext, GatewayServiceError, InferenceJobInput } from "./types";
+import {
+  GatewayServiceContext,
+  GatewayServiceError,
+  InferenceJobInput,
+} from "./types";
 
 const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
 
@@ -25,10 +29,13 @@ export async function insertJobs(
     body: JSON.stringify(kvPairs),
   });
   if (result.status !== 200) {
-    console.error(`Failed to insert jobs: ${result.status}, ${await result.text()}`);
+    console.error(
+      `Failed to insert jobs: ${result.status}, ${await result.text()}`
+    );
     throw new GatewayServiceError(500, "Failed to insert jobs");
   }
-  const data: { error?: object[] | null; success: boolean } = await result.json();
+  const data: { error?: object[] | null; success: boolean } =
+    await result.json();
   if (!data.success) {
     console.error(`Failed to insert jobs: ${JSON.stringify(data)}`);
     throw new GatewayServiceError(500, "Failed to insert jobs");
@@ -47,7 +54,10 @@ export async function getJobInput(
   return JSON.parse(jobCtx as string) as InferenceJobInput;
 }
 
-export async function storeJobOutput(c: GatewayServiceContext, jobOutput: object): Promise<string> {
+export async function storeJobOutput(
+  c: GatewayServiceContext,
+  jobOutput: object
+): Promise<string> {
   const value = JSON.stringify(jobOutput);
   const jobDataKey = await md5(value);
   const now = Math.floor(Date.now() / 1000);

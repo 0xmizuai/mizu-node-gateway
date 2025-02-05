@@ -66,12 +66,15 @@ export class TakeJob extends OpenAPIRoute {
       jobType: data.query.jobType.toString(),
       referenceId: data.query.referenceId.toString(),
     });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/take_job?${params.toString()}`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
+    const resp = await fetch(
+      `${c.env.NODE_SERVICE_URL}/v3/take_job?${params.toString()}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+        },
+      }
+    );
     if (resp.status !== 200) {
       throw new GatewayServiceError(500, "Failed to take job");
     }
@@ -172,6 +175,20 @@ export class FinishJob extends OpenAPIRoute {
   }
 }
 
+const ollamaInputSchema = z
+  .object({
+    model: z.string(),
+    messages: z.array(
+      z.object({
+        role: z.enum(["system", "user", "assistant"]),
+        content: z.string(),
+      })
+    ),
+    temperature: z.number().min(0).max(2).default(1),
+    maxTokens: z.number().int().min(1).max(8192).default(4096),
+  })
+  .passthrough();
+
 export class PublishInferenceJobs extends OpenAPIRoute {
   schema = {
     request: {
@@ -181,21 +198,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
             schema: z.object({
               jobs: z.object({
                 pool: z.number().int(),
-                contexts: z.array(
-                  z
-                    .object({
-                      model: z.string(),
-                      messages: z.array(
-                        z.object({
-                          role: z.enum(["system", "user", "assistant"]),
-                          content: z.string(),
-                        })
-                      ),
-                      temperature: z.number().min(0).max(2).default(1),
-                      maxTokens: z.number().int().min(1).max(8192).default(4096),
-                    })
-                    .passthrough()
-                ),
+                contexts: z.array(ollamaInputSchema),
               }),
             }),
           },
@@ -234,28 +237,34 @@ export class PublishInferenceJobs extends OpenAPIRoute {
         } as InferenceJobInput;
       })
     );
-    const totalCost = inputData.reduce((acc, input) => acc + input.estimatedCost, 0);
+    const totalCost = inputData.reduce(
+      (acc, input) => acc + input.estimatedCost,
+      0
+    );
     const balance = await getBalance(c.env, c.get("userId"));
     if (balance.balance < totalCost) {
       throw new GatewayServiceError(400, "Insufficient balance");
     }
 
     const inputKeys = await insertJobs(c, inputData);
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        user: c.get("userId"),
-        jobType: 4,
-        referenceId: data.body.jobs.pool,
-        jobs: inputKeys.map((inputKey) => ({
-          jobCtxKey: inputKey,
-        })),
-      } as NodePublishJobsRequest),
-    });
+    const resp = await fetch(
+      `${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          user: c.get("userId"),
+          jobType: 4,
+          referenceId: data.body.jobs.pool,
+          jobs: inputKeys.map((inputKey) => ({
+            jobCtxKey: inputKey,
+          })),
+        } as NodePublishJobsRequest),
+      }
+    );
     if (resp.status !== 200) {
       console.log("failed to publish jobs", await resp.text());
       throw new GatewayServiceError(500, "Failed to publish jobs");
@@ -304,13 +313,16 @@ export class GetJobResults extends OpenAPIRoute {
     const queryParams = new URLSearchParams({
       jobIds: data.query.jobIds,
     });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/job_results?${queryParams.toString()}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
+    const resp = await fetch(
+      `${c.env.NODE_SERVICE_URL}/v3/job_results?${queryParams.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+        },
+      }
+    );
     if (resp.status !== 200) {
       throw new GatewayServiceError(500, "Failed to get job results");
     }
@@ -361,13 +373,16 @@ export class GetPoolStats extends OpenAPIRoute {
       jobType: "4",
       referenceIds: data.query.pools,
     });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/queue_stats?${queryParams.toString()}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
+    const resp = await fetch(
+      `${c.env.NODE_SERVICE_URL}/v3/queue_stats?${queryParams.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+        },
+      }
+    );
     if (resp.status !== 200) {
       throw new GatewayServiceError(500, await resp.text());
     }

@@ -1,6 +1,9 @@
 import { InferenceContext, PoolConfig } from "./types";
 
-export async function estimateCost(poolConfig: PoolConfig, ctx: InferenceContext): Promise<number> {
+export async function estimateCost(
+  poolConfig: PoolConfig,
+  ctx: InferenceContext
+): Promise<number> {
   const content = ctx.messages.map((m) => m.content).join("\n");
 
   // Estimate tokens as (unicode characters * 1.2) to account for multi-byte characters

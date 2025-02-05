@@ -1,4 +1,9 @@
-import { Balance, InferenceJobInput, PoolConfig, PoolConfigInput } from "./types";
+import {
+  Balance,
+  InferenceJobInput,
+  PoolConfig,
+  PoolConfigInput,
+} from "./types";
 import { GatewayServiceError, TokenUsage } from "./types";
 
 export async function getPools(env: Env): Promise<PoolConfig[]> {
@@ -58,8 +63,20 @@ export async function settleTokenUsage(
   );
   const now = Math.floor(Date.now() / 1000);
   await env.DB.batch([
-    publisherQuery.bind(jobInput.estimatedCost, totalCost, now, jobInput.publisher),
-    poolOwnerQuery.bind(config.owner, config.id, totalCost, now, totalCost, now),
+    publisherQuery.bind(
+      jobInput.estimatedCost,
+      totalCost,
+      now,
+      jobInput.publisher
+    ),
+    poolOwnerQuery.bind(
+      config.owner,
+      config.id,
+      totalCost,
+      now,
+      totalCost,
+      now
+    ),
   ]);
 }
 
@@ -69,7 +86,11 @@ export async function poolNameExists(env: Env, name: string): Promise<boolean> {
   return result !== null;
 }
 
-export async function createPool(env: Env, user: string, pool: PoolConfigInput): Promise<number> {
+export async function createPool(
+  env: Env,
+  user: string,
+  pool: PoolConfigInput
+): Promise<number> {
   if (await poolNameExists(env, pool.name)) {
     throw new GatewayServiceError(409, "Pool name already exists");
   }
@@ -81,7 +102,15 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   );
   const now = Math.floor(Date.now() / 1000);
   const result = await stmt
-    .bind(pool.name, pool.model, user, JSON.stringify(pool.prices), pool.contextLength, now, now)
+    .bind(
+      pool.name,
+      pool.model,
+      user,
+      JSON.stringify(pool.prices),
+      pool.contextLength,
+      now,
+      now
+    )
     .run()
     .catch((err: any) => {
       if (err.code === 2067) {
@@ -96,11 +125,19 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   return Number(result.results[0].id);
 }
 
-export async function deposit(env: Env, user: string, amount: number): Promise<Balance> {
+export async function deposit(
+  env: Env,
+  user: string,
+  amount: number
+): Promise<Balance> {
   // Insert user if not exists with 0 credit
-  const insertStmt = env.DB.prepare("INSERT OR IGNORE INTO user (user, deposit) VALUES (?, 0)");
+  const insertStmt = env.DB.prepare(
+    "INSERT OR IGNORE INTO user (user, deposit) VALUES (?, 0)"
+  );
   // Update credit
-  const updateStmt = env.DB.prepare("UPDATE user SET deposit = deposit + ? WHERE user = ?");
+  const updateStmt = env.DB.prepare(
+    "UPDATE user SET deposit = deposit + ? WHERE user = ?"
+  );
   await env.DB.batch([insertStmt.bind(user), updateStmt.bind(amount, user)]);
   return await getBalance(env, user);
 }
@@ -109,11 +146,17 @@ export async function getBalance(env: Env, user: string): Promise<Balance> {
   const selectStmt = env.DB.prepare(
     "SELECT deposit, earnings, pendingCost, finalizedCost FROM user WHERE user = ?"
   );
-  const result: Record<string, number> | null = await selectStmt.bind(user).first();
+  const result: Record<string, number> | null = await selectStmt
+    .bind(user)
+    .first();
   if (!result) {
     throw new GatewayServiceError(404, "User not found after deposit");
   }
-  const balance = result.deposit + result.earnings - result.pendingCost - result.finalizedCost;
+  const balance =
+    result.deposit +
+    result.earnings -
+    result.pendingCost -
+    result.finalizedCost;
   return {
     balance,
     deposit: result.deposit,
