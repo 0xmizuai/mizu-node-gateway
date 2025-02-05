@@ -1,0 +1,17 @@
+name = "mizu-node-gateway"
+main = "src/index.ts"
+compatibility_date = "2023-12-18"
+
+kv_namespaces = [
+  { binding = "KV", id = "kv-namespace-id", preview_id = "kv-namespace-preview-id" }
+]
+
+[vars]
+JWT_PUB_KEY = "this is the internal service key"
+NODE_SERVICE_URL = "https://mizu-node-service.mizu.com"
+INTERNAL_SERVICE_API_KEY = "this is the internal service key"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prod-d1-tutorial"
+database_id = "<unique-ID-for-your-database>"

@@ -1,0 +1,50 @@
+{
+  "name": "metadata-migrator",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "test": "vitest",
+    "cf-typegen": "wrangler types",
+    "lint": "eslint 'src/**/*.{js,ts}' --quiet",
+    "lint:fix": "eslint 'src/**/*.{js,ts}' --quiet --fix",
+    "format": "prettier --write 'src/**/*.{js,ts,json,md}'",
+    "format:check": "prettier --check 'src/**/*.{js,ts,json,md}'",
+    "pre-commit": "lint-staged",
+    "prepare": "husky install",
+    "postinstall": "husky install"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.2",
+    "@cloudflare/workers-types": "^4.20250121.0",
+    "@types/node": "^22.10.1",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "eslint": "^8.38.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^13.3.0",
+    "prettier": "^2.8.7",
+    "typescript": "^5.5.2",
+    "vitest": "2.0.5",
+    "wrangler": "^3.105.1"
+  },
+  "dependencies": {
+    "chanfana": "^2.6.3",
+    "hono": "^4.6.18",
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
+  },
+  "lint-staged": {
+    "*.{js,ts,json,md}": "npm run pre-commit"
+  },
+  "overrides": {
+    "tinypool": {
+      "typescript-eslint": "$typescript-eslint",
+      "eslint": "$eslint"
+    }
+  }
+}
