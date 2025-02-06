@@ -28,6 +28,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^13.3.0",
     "prettier": "^2.8.8",
+    "tsc-files": "^1.1.4",
     "typescript": "^5.5.2",
     "vitest": "2.0.5",
     "wrangler": "^3.105.1"

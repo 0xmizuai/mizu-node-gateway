@@ -53,6 +53,9 @@ importers:
       prettier:
         specifier: ^2.8.8
         version: 2.8.8
+      tsc-files:
+        specifier: ^1.1.4
+        version: 1.1.4(typescript@5.7.3)
       typescript:
         specifier: ^5.5.2
         version: 5.7.3
@@ -2572,6 +2575,15 @@ packages:
       }
     engines: { node: '>=8.0' }
 
+  tsc-files@1.1.4:
+    resolution:
+      {
+        integrity: sha512-RePsRsOLru3BPpnf237y1Xe1oCGta8rmSYzM76kYo5tLGsv5R2r3s64yapYorGTPuuLyfS9NVbh9ydzmvNie2w==,
+      }
+    hasBin: true
+    peerDependencies:
+      typescript: '>=3'
+
   tslib@1.14.1:
     resolution:
       {
@@ -4216,6 +4228,10 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
+
+  tsc-files@1.1.4(typescript@5.7.3):
+    dependencies:
+      typescript: 5.7.3
 
   tslib@1.14.1: {}
 
