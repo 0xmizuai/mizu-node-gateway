@@ -5,7 +5,7 @@ CREATE TABLE pools (
     owner TEXT NOT NULL,
     prices JSONB NOT NULL,
     contextLength INTEGER NOT NULL,
-    status INTEGER NOT NULL,
+    status INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER,
     updatedAt INTEGER
 );

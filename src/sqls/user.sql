@@ -1,6 +1,7 @@
 CREATE TABLE users (
     id INTEGER PRIMARY KEY,
-    user TEXT NOT NULL,
+    user TEXT UNIQUE NOT NULL,
+    platform TEXT NOT NULL,
     deposit INTEGER NOT NULL,
     earnings INTEGER NOT NULL,
     pendingCost INTEGER NOT NULL,
