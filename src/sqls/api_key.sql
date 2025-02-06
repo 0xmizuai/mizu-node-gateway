@@ -7,4 +7,4 @@ CREATE TABLE api_keys (
     updatedAt INTEGER
 );
 
-CREATE INDEX idx_api_key_api_key_user_id ON api_key (api_key, user_id);
+CREATE INDEX idx_api_key_api_key_user_id ON api_keys (api_key, user_id);

@@ -15,6 +15,9 @@ import {
   PublishInferenceJobs,
   TakeJob,
   UpdatePool,
+  CreateApiKey,
+  DeleteApiKey,
+  ListApiKeys,
 } from './handlers';
 import { authMiddleware } from './auth';
 
@@ -56,6 +59,10 @@ app.use('/update_pool/:id', authMiddleware);
 app.use('/deposit', authMiddleware);
 app.use('/balance', authMiddleware);
 
+app.use('/api_key/new', authMiddleware);
+app.use('/api_key/delete/:id', authMiddleware);
+app.use('/api_key/list', authMiddleware);
+
 // Error handling middleware
 app.onError(async (err, c) => {
   if (err instanceof GatewayServiceError) {
@@ -87,6 +94,10 @@ openapi.post('/update_pool/:id', UpdatePool);
 
 openapi.post('/deposit', Deposit);
 openapi.get('/balance', GetBalance);
+
+openapi.post('/api_key/new', CreateApiKey);
+openapi.post('/api_key/delete/:id', DeleteApiKey);
+openapi.get('/api_key/list', ListApiKeys);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));

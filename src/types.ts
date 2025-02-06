@@ -1,5 +1,5 @@
-import { Context } from "hono";
-import { ContentfulStatusCode } from "hono/utils/http-status";
+import { Context } from 'hono';
+import { ContentfulStatusCode } from 'hono/utils/http-status';
 
 export class GatewayServiceError extends Error {
   code: ContentfulStatusCode;
@@ -7,7 +7,7 @@ export class GatewayServiceError extends Error {
   constructor(code: ContentfulStatusCode, message: string) {
     super(message);
     this.code = code;
-    this.name = "GatewayServiceError";
+    this.name = 'GatewayServiceError';
   }
 }
 
@@ -104,7 +104,7 @@ export interface UpdatePublisherStatusResponse {
 }
 
 export interface InferenceMessages {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -152,4 +152,17 @@ export interface Balance {
   earnings: number;
   pendingCost: number;
   finalizedCost: number;
+}
+
+export enum ApiKeyStatus {
+  ACTIVE = 0,
+  INACTIVE = 1,
+  DELETED = 2,
+}
+
+export interface ApiKey {
+  id: number;
+  apiKey: string;
+  status: ApiKeyStatus;
+  createdAt: number;
 }
