@@ -162,7 +162,9 @@ export enum ApiKeyStatus {
 
 export interface ApiKey {
   id: number;
+  name: string;
   apiKey: string;
   status: ApiKeyStatus;
   createdAt: number;
+  updatedAt?: number;
 }

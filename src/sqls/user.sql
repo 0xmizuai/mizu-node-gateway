@@ -1,7 +1,5 @@
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY,
-    user TEXT UNIQUE NOT NULL,
-    platform TEXT NOT NULL,
+    id TEXT PRIMARY KEY,
     deposit INTEGER NOT NULL,
     earnings INTEGER NOT NULL,
     pendingCost INTEGER NOT NULL,
@@ -9,5 +7,3 @@ CREATE TABLE users (
     createdAt INTEGER,
     updatedAt INTEGER
 );
-
-CREATE INDEX idx_users_user ON users (user);

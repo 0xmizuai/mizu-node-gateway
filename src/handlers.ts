@@ -19,6 +19,7 @@ import {
   getBalance,
   getPool,
   getPools,
+  recordPendingCost,
   settleTokenUsage,
   updatePool,
 } from './d1';
@@ -261,6 +262,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
       console.log('failed to publish jobs', await resp.text());
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
+    await recordPendingCost(c.env, c.get('userId'), totalCost);
     const result: NodePublishJobsResponse = await resp.json();
     return c.json(result);
   }
@@ -636,13 +638,26 @@ export class UpdatePool extends OpenAPIRoute {
 
 const apiKeySchema = z.object({
   id: z.number().int(),
+  name: z.string(),
   apiKey: z.string(),
   status: z.number().int().min(0).max(2),
   createdAt: z.number().int(),
+  updatedAt: z.number().int().optional(),
 });
 
 export class CreateApiKey extends OpenAPIRoute {
   schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              name: z.string(),
+            }),
+          },
+        },
+      },
+    },
     responses: {
       '200': {
         description: '',
@@ -659,7 +674,8 @@ export class CreateApiKey extends OpenAPIRoute {
   };
 
   async handle(c: GatewayServiceContext) {
-    const apiKey = await createApiKey(c.env, c.get('userId'));
+    const data = await this.getValidatedData<typeof this.schema>();
+    const apiKey = await createApiKey(c.env, c.get('userId'), data.body.name);
     return c.json({ message: 'ok', data: apiKey });
   }
 }
