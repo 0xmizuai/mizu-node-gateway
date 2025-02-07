@@ -371,17 +371,20 @@ export class GetPoolStats extends OpenAPIRoute {
   }
 }
 
-const poolSchema = z.object({
-  id: z.number().int(),
+const poolInputSchema = z.object({
   name: z.string(),
   model: z.string(),
-  owner: z.string(),
   prices: z.object({
     input: z.number().int(),
     output: z.number().int(),
   }),
   contextLength: z.number().int(),
   maxOutput: z.number().int(),
+});
+
+const poolSchema = poolInputSchema.extend({
+  id: z.number().int(),
+  owner: z.string(),
   status: z.number().int().min(0).max(2),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
@@ -417,16 +420,7 @@ export class CreatePool extends OpenAPIRoute {
       body: {
         content: {
           'application/json': {
-            schema: z.object({
-              name: z.string(),
-              model: z.string(),
-              prices: z.object({
-                input: z.number().int(),
-                output: z.number().int(),
-              }),
-              contextLength: z.number().int(),
-              maxOutput: z.number().int(),
-            }),
+            schema: poolInputSchema,
           },
         },
       },
@@ -480,6 +474,53 @@ export class GetPool extends OpenAPIRoute {
     const data = await this.getValidatedData<typeof this.schema>();
     const pool = await getPool(c.env, data.query.id);
     return c.json({ data: pool });
+  }
+}
+
+export class UpdatePool extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              id: z.number().int(),
+              status: z.number().int().min(0).max(2).optional(),
+              prices: z
+                .object({
+                  input: z.number().int(),
+                  output: z.number().int(),
+                })
+                .optional(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: '',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string().default('ok'),
+              data: poolSchema,
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const existingPool = await getPool(c.env, data.body.id);
+    const user = c.get('userId');
+    if (user != existingPool.owner) {
+      throw new GatewayServiceError(403, 'Forbidden');
+    }
+    const pool = await updatePool(c.env, existingPool, data.body);
+    return c.json({ message: 'ok', data: pool });
   }
 }
 
@@ -554,66 +595,6 @@ export class GetBalance extends OpenAPIRoute {
     const user = c.get('userId');
     const balance = await getBalance(c.env, user);
     return c.json({ message: 'ok', data: balance });
-  }
-}
-
-export class UpdatePool extends OpenAPIRoute {
-  schema = {
-    request: {
-      body: {
-        content: {
-          'application/json': {
-            schema: z.object({
-              id: z.number().int(),
-              status: z.number().int().min(0).max(2).optional(),
-              prices: z
-                .object({
-                  input: z.number().int(),
-                  output: z.number().int(),
-                })
-                .optional(),
-            }),
-          },
-        },
-      },
-    },
-    responses: {
-      '200': {
-        description: '',
-        content: {
-          'application/json': {
-            schema: z.object({
-              message: z.string().default('ok'),
-              data: z.object({
-                id: z.number().int(),
-                name: z.string(),
-                model: z.string(),
-                owner: z.string(),
-                prices: z.object({
-                  input: z.number().int(),
-                  output: z.number().int(),
-                }),
-                contextLength: z.number().int(),
-                status: z.number().int().min(0).max(2),
-                createdAt: z.number().int(),
-                updatedAt: z.number().int(),
-              }),
-            }),
-          },
-        },
-      },
-    },
-  };
-
-  async handle(c: GatewayServiceContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const existingPool = await getPool(c.env, data.body.id);
-    const user = c.get('userId');
-    if (user != existingPool.owner) {
-      throw new GatewayServiceError(403, 'Forbidden');
-    }
-    const pool = await updatePool(c.env, existingPool, data.body);
-    return c.json({ message: 'ok', data: pool });
   }
 }
 

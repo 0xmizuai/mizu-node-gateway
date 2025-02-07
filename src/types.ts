@@ -136,6 +136,7 @@ export interface PoolConfigInput {
     output: number;
   };
   contextLength: number;
+  maxOutput: number;
 }
 
 export interface PoolConfig extends PoolConfigInput {

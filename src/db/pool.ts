@@ -10,6 +10,7 @@ export async function getPools(env: Env): Promise<PoolConfig[]> {
     owner: row.owner as string,
     prices: row.prices as { input: number; output: number },
     contextLength: Number(row.context_length),
+    maxOutput: Number(row.max_output),
     status: Number(row.status),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
@@ -29,6 +30,7 @@ export async function getPool(env: Env, id: number): Promise<PoolConfig> {
     owner: result.owner as string,
     prices: result.prices as { input: number; output: number },
     contextLength: Number(result.context_length),
+    maxOutput: Number(result.max_output),
     status: Number(result.status),
     createdAt: Number(result.created_at),
     updatedAt: Number(result.updated_at),
@@ -42,12 +44,13 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
 
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, createdAt, updatedAt) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      'contextLength, maxOutput, createdAt, updatedAt) VALUES ' +
+      '(?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
   );
   const now = Math.floor(Date.now() / 1000);
+  const prices = JSON.stringify(pool.prices);
   const result = await stmt
-    .bind(pool.name, pool.model, user, JSON.stringify(pool.prices), pool.contextLength, now, now)
+    .bind(pool.name, pool.model, user, prices, pool.contextLength, pool.maxOutput, now, now)
     .run()
     .catch((err: any) => {
       if (err.code === 2067) {
@@ -93,6 +96,7 @@ export async function updatePool(
     owner: existingPool.owner,
     prices: pool.prices ?? existingPool.prices,
     contextLength: existingPool.contextLength,
+    maxOutput: existingPool.maxOutput,
     status: pool.status ?? existingPool.status,
     createdAt: existingPool.createdAt,
     updatedAt: now,
