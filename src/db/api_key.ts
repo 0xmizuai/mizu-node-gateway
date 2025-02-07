@@ -1,4 +1,4 @@
-import { ApiKey, ApiKeyStatus, GatewayServiceError } from './types';
+import { ApiKey, ApiKeyStatus, GatewayServiceError } from '../types';
 
 export async function getApiKeys(env: Env, userId: string): Promise<ApiKey[]> {
   const stmt = env.DB.prepare('SELECT * FROM api_keys WHERE user_id = ?');
@@ -15,6 +15,7 @@ export async function getApiKeys(env: Env, userId: string): Promise<ApiKey[]> {
       } as ApiKey),
   );
 }
+
 export async function createApiKey(env: Env, userId: string, name: string): Promise<ApiKey> {
   const key = await crypto.subtle
     .digest('SHA-256', crypto.getRandomValues(new Uint8Array(32)))

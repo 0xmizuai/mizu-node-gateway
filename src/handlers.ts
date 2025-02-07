@@ -13,18 +13,10 @@ import {
 } from './types';
 import { z } from 'zod';
 import { storeJobOutput, insertJobs, getJobOutputs, getJobInput } from './kv';
-import {
-  createPool,
-  deposit,
-  getBalance,
-  getPool,
-  getPools,
-  recordPendingCost,
-  settleTokenUsage,
-  updatePool,
-} from './d1';
+import { deposit, getBalance, recordPendingCost, settleTokenUsage } from './db/token';
 import { estimateCost } from './utils';
-import { createApiKey, deleteApiKey, getApiKeys } from './api_key';
+import { createApiKey, deleteApiKey, getApiKeys } from './db/api_key';
+import { createPool, getPool, getPools, updatePool } from './db/pool';
 
 const MIZU_ADMIN_USER = 'admin.mizu';
 
