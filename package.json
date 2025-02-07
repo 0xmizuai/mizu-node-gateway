@@ -13,8 +13,8 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "pre-commit": "lint-staged",
-    "prepare": "husky install",
-    "postinstall": "husky install"
+    "prepare": "husky",
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.2",
@@ -43,6 +43,7 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "prettier --write",
+      "tsc-files --noEmit",
       "git add"
     ],
     "*.{json,md,yml,yaml,css,scss}": [
