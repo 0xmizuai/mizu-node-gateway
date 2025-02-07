@@ -31,7 +31,7 @@
     "tsc-files": "^1.1.4",
     "typescript": "^5.5.2",
     "vitest": "2.0.5",
-    "wrangler": "^3.105.1"
+    "wrangler": "^3.107.3"
   },
   "dependencies": {
     "chanfana": "^2.6.3",
