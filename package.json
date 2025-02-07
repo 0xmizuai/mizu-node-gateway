@@ -3,9 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
+    "start": "wrangler dev --config wrangler.local.toml --local",
     "test": "vitest",
     "cf-typegen": "wrangler types",
     "lint": "eslint 'src/**/*.{js,ts}' --quiet",
