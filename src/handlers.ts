@@ -371,6 +371,22 @@ export class GetPoolStats extends OpenAPIRoute {
   }
 }
 
+const poolSchema = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  model: z.string(),
+  owner: z.string(),
+  prices: z.object({
+    input: z.number().int(),
+    output: z.number().int(),
+  }),
+  contextLength: z.number().int(),
+  maxOutput: z.number().int(),
+  status: z.number().int().min(0).max(2),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+});
+
 export class GetPools extends OpenAPIRoute {
   schema = {
     responses: {
@@ -379,22 +395,7 @@ export class GetPools extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              data: z.array(
-                z.object({
-                  id: z.number().int(),
-                  name: z.string(),
-                  model: z.string(),
-                  owner: z.string(),
-                  prices: z.object({
-                    input: z.number().int(),
-                    output: z.number().int(),
-                  }),
-                  contextLength: z.number().int(),
-                  status: z.number().int().min(0).max(2),
-                  createdAt: z.number().int(),
-                  updatedAt: z.number().int(),
-                }),
-              ),
+              data: z.array(poolSchema),
             }),
           },
         },
@@ -424,6 +425,7 @@ export class CreatePool extends OpenAPIRoute {
                 output: z.number().int(),
               }),
               contextLength: z.number().int(),
+              maxOutput: z.number().int(),
             }),
           },
         },
@@ -466,20 +468,7 @@ export class GetPool extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              data: z.object({
-                id: z.number().int(),
-                name: z.string(),
-                model: z.string(),
-                owner: z.string(),
-                prices: z.object({
-                  input: z.number().int(),
-                  output: z.number().int(),
-                }),
-                contextLength: z.number().int(),
-                status: z.number().int().min(0).max(2),
-                createdAt: z.number().int(),
-                updatedAt: z.number().int(),
-              }),
+              data: poolSchema,
             }),
           },
         },
@@ -490,7 +479,7 @@ export class GetPool extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const pool = await getPool(c.env, data.query.id);
-    return c.json(pool);
+    return c.json({ data: pool });
   }
 }
 
