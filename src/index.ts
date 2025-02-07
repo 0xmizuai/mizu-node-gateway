@@ -3,23 +3,11 @@ import { cors } from 'hono/cors';
 
 import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
-import {
-  CreatePool,
-  Deposit,
-  FinishJob,
-  GetBalance,
-  GetJobResults,
-  GetPool,
-  GetPools,
-  GetPoolStats,
-  PublishInferenceJobs,
-  TakeJob,
-  UpdatePool,
-  CreateApiKey,
-  DeleteApiKey,
-  ListApiKeys,
-} from './handlers';
 import { authMiddleware } from './auth';
+import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
+import { Deposit, GetBalance } from './handlers/credit';
+import { TakeJob, FinishJob, PublishInferenceJobs, GetJobResults } from './handlers/job';
+import { GetPoolStats, CreatePool, GetPools, GetPool, UpdatePool } from './handlers/pool';
 
 const app = new Hono<{
   Bindings: {
