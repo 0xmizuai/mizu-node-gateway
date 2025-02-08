@@ -1,5 +1,4 @@
 import { OpenAPIRoute } from 'chanfana';
-import { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, recordPendingCost } from '../db/credit';
@@ -16,7 +15,8 @@ import {
   NodeGetJobResultsResponse,
 } from '../types';
 import { estimateCost } from '../utils';
-import { getUserFromApiKey } from '../db/api_key';
+
+const DEFAULT_TIMEOUT_MS = 30000;
 
 export class TakeJob extends OpenAPIRoute {
   schema = {
@@ -180,24 +180,23 @@ const ollamaInputSchema = z
   .passthrough();
 
 const jobRequestSchema = z.object({
-  jobs: z.object({
-    pool: z.number().int(),
-    contexts: z.array(ollamaInputSchema),
-  }),
+  pool: z.number().int(),
+  contexts: z.array(ollamaInputSchema),
 });
 
-type JobValidatedData = {
-  body: z.infer<typeof jobRequestSchema>;
-};
+type JobValidatedData = z.infer<typeof jobRequestSchema>;
 
-async function handleJobRequest(c: GatewayServiceContext, data: JobValidatedData) {
-  const poolConfig = await getPool(c.env, data.body.jobs.pool);
+async function handleJobRequest(
+  c: GatewayServiceContext,
+  jobs: JobValidatedData,
+): Promise<NodePublishJobsResponse> {
+  const poolConfig = await getPool(c.env, jobs.pool);
   if (!poolConfig) {
     throw new GatewayServiceError(404, 'Pool not found');
   }
 
   const inputData = await Promise.all(
-    data.body.jobs.contexts.map(async context => {
+    jobs.contexts.map(async context => {
       return {
         context,
         publisher: c.get('userId'),
@@ -221,7 +220,7 @@ async function handleJobRequest(c: GatewayServiceContext, data: JobValidatedData
     body: JSON.stringify({
       user: c.get('userId'),
       jobType: 4,
-      referenceId: data.body.jobs.pool,
+      referenceId: jobs.pool,
       jobs: inputKeys.map(inputKey => ({
         jobCtxKey: inputKey,
       })),
@@ -232,8 +231,7 @@ async function handleJobRequest(c: GatewayServiceContext, data: JobValidatedData
     throw new GatewayServiceError(500, 'Failed to publish jobs');
   }
   await recordPendingCost(c.env, c.get('userId'), totalCost);
-  const result: NodePublishJobsResponse = await resp.json();
-  return c.json(result);
+  return (await resp.json()) as NodePublishJobsResponse;
 }
 
 export class PublishInferenceJobs extends OpenAPIRoute {
@@ -242,7 +240,9 @@ export class PublishInferenceJobs extends OpenAPIRoute {
       body: {
         content: {
           'application/json': {
-            schema: jobRequestSchema,
+            schema: z.object({
+              jobs: jobRequestSchema,
+            }),
           },
         },
       },
@@ -265,7 +265,8 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    return handleJobRequest(c, data);
+    const resp = await handleJobRequest(c, data.body.jobs);
+    return c.json(resp);
   }
 }
 
@@ -273,13 +274,15 @@ const getJobResultRequestSchema = z.object({
   jobIds: z.string(),
 });
 
-type JobResultValidatedData = {
-  query: z.infer<typeof getJobResultRequestSchema>;
-};
+interface JobResult {
+  jobId: number;
+  status: string;
+  jobOutput: object | null;
+}
 
-async function handleGetJobResults(c: GatewayServiceContext, data: JobResultValidatedData) {
+async function handleGetJobResults(c: GatewayServiceContext, jobIds: string): Promise<JobResult[]> {
   const queryParams = new URLSearchParams({
-    jobIds: data.query.jobIds,
+    jobIds: jobIds,
   });
   const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/job_results?${queryParams.toString()}`, {
     method: 'GET',
@@ -296,13 +299,11 @@ async function handleGetJobResults(c: GatewayServiceContext, data: JobResultVali
     .map(result => result.jobOutputKey)
     .filter(key => key != null);
   const jobOutputs = await getJobOutputs(c, outputKeys);
-  return c.json({
-    results: result.data.results.map(result => ({
-      jobId: result.jobId,
-      status: result.status,
-      jobOutput: jobOutputs[result.jobOutputKey] || null,
-    })),
-  });
+  return result.data.results.map(result => ({
+    jobId: result.jobId,
+    status: result.status,
+    jobOutput: jobOutputs[result.jobOutputKey] || null,
+  }));
 }
 
 export class GetJobResults extends OpenAPIRoute {
@@ -339,16 +340,14 @@ export class GetJobResults extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    return handleGetJobResults(c, data);
+    const results = await handleGetJobResults(c, data.query.jobIds);
+    return c.json({ results });
   }
 }
 
 export class ChatCompletions extends OpenAPIRoute {
   schema = {
     request: {
-      headers: z.object({
-        authorization: z.string().describe('Authorization: Bearer <api_key>'),
-      }),
       params: z.object({
         id: z.number().int(),
       }),
@@ -379,63 +378,43 @@ export class ChatCompletions extends OpenAPIRoute {
     const data = await this.getValidatedData<typeof this.schema>();
     const poolId = data.params.id;
 
-    // Extract the API key from the Authorization header
-    const authHeader = data.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new GatewayServiceError(401, 'Invalid authorization header format');
-    }
-    const apiKey = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    // Check user and add it to our env
-    const user = await getUserFromApiKey(c.env, apiKey);
-    if (!user) {
-      throw new GatewayServiceError(401, 'Invalid API key');
-    }
-    c.set('userId', user.toString());
-
-    // Validate pool existence and ownership
     const pool = await getPool(c.env, poolId);
     if (!pool) {
       throw new GatewayServiceError(404, 'Pool not found');
     }
-
-    // Prepare new data
-    // type JobRequest = z.infer<typeof jobRequestSchema>;
-    // const originalBody: z.infer<typeof ollamaInputSchema> = data.body;
-    // const newBody: JobRequest = {
-    //   jobs: {
-    //     pool: poolId,
-    //     contexts: [originalBody],
-    //   },
-    // };
-
     const new_data: JobValidatedData = {
-      body: {
-        jobs: {
-          pool: poolId,
-          contexts: [data.body],
-        },
-      },
+      pool: poolId,
+      contexts: [data.body],
     };
-
-    // get publish response
     const response = await handleJobRequest(c, new_data);
-    if (!response.ok) {
-      throw new GatewayServiceError(response.status as ContentfulStatusCode, 'Request failed');
-    }
-
-    // the job_id to monitor
-    const res: NodePublishJobsResponse = await response.json();
-    if (res.data.jobIds.length !== 1) {
+    if (response.data.jobIds.length !== 1) {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
-    const job_id = res.data.jobIds[0];
 
-    // ToDo: given a job_id, implement the polling logic for getting the job result and send it back to the chat
-
-    // ToDo: implement the schema expected by ChatBox for the response
-    return c.json({
-      message: 'ok',
-    });
+    const job_id = response.data.jobIds[0];
+    const startTime = Date.now();
+    while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
+      try {
+        const job_results = await handleGetJobResults(c, job_id.toString());
+        if (job_results.length !== 1) {
+          throw new GatewayServiceError(500, 'Failed to get job results');
+        }
+        const job_result = job_results[0];
+        if (job_result.status == 'finished' || job_result.status == 'error') {
+          const job_output = job_result.jobOutput;
+          if (!job_output) {
+            throw new GatewayServiceError(500, 'Job output not found');
+          }
+          return c.json(job_output);
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        if (e instanceof GatewayServiceError && e.code === 408) {
+          throw e;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    throw new GatewayServiceError(408, 'Request timed out');
   }
 }

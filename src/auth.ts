@@ -2,6 +2,7 @@ import * as jose from 'jose';
 import { Next } from 'hono';
 
 import { GatewayServiceContext } from './types';
+import { getUserFromApiKey } from './db/api_key';
 
 // Authentication middleware
 export async function authMiddleware(c: GatewayServiceContext, next: Next) {
@@ -12,8 +13,16 @@ export async function authMiddleware(c: GatewayServiceContext, next: Next) {
 
   try {
     const token = authHeader.split(' ')[1];
-    const user = await verifyJWT(token, c.env.JWT_PUB_KEY);
-    c.set('userId', JSON.parse(user).userId);
+    if (token.startsWith('mizu-')) {
+      const userId = await getUserFromApiKey(c.env, token);
+      if (!userId) {
+        return c.text('Unauthorized', 401);
+      }
+      c.set('userId', userId.toString());
+    } else {
+      const userId = await verifyJWT(token, c.env.JWT_PUB_KEY);
+      c.set('userId', userId);
+    }
     await next();
   } catch (error) {
     return c.text('Unauthorized', 401);

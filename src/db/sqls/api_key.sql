@@ -6,8 +6,7 @@ CREATE TABLE api_keys (
     status INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
-    UNIQUE (api_key, user)
 );
 
-CREATE UNIQUE INDEX idx_api_key_user_key ON api_keys (user, api_key);
+CREATE UNIQUE INDEX idx_api_key ON api_keys (api_key);
 CREATE INDEX idx_api_key_user ON api_keys (user);

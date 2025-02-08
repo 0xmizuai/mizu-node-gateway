@@ -51,8 +51,7 @@ app.use('/take_job', authMiddleware);
 app.use('/finish_job', authMiddleware);
 app.use('/publish_inference_jobs', authMiddleware);
 app.use('/job_results', authMiddleware);
-// ToDo: activate once improved authMiddleWare
-// app.use('/pool/:id/chat/completions', authMiddleware);
+app.use('/pool/:id/chat/completions', authMiddleware);
 
 app.use('/pool_stats', authMiddleware);
 app.use('/pools', authMiddleware);

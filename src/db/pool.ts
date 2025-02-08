@@ -9,7 +9,7 @@ function toPoolConfig(row: any): PoolConfig {
     prices: row.prices as { input: number; output: number },
     contextLength: Number(row.contextLength),
     maxOutput: Number(row.maxOutput),
-    status: Number(row.status),
+    status: Number(row.status) as PoolStatus,
     earnings: Number(row.earnings),
     settledEarnings: Number(row.settledEarnings),
     lastSettledDay: Number(row.lastSettledDay),

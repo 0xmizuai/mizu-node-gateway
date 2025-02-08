@@ -1,7 +1,17 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
+<<<<<<< HEAD
 import { getPools, createPool, getPool, updatePool, getUserPools } from '../db/pool';
 import { GatewayServiceContext, GatewayServiceError, NodeGetQueueStatsResponse } from '../types';
+=======
+import { getPools, createPool, getPool, updatePool } from '../db/pool';
+import {
+  GatewayServiceContext,
+  GatewayServiceError,
+  NodeGetQueueStatsResponse,
+  PoolStatus,
+} from '../types';
+>>>>>>> 0bfaaa7 (finish chat_completion endpoint)
 import { settlePoolRewards } from '../db/credit';
 
 const poolInputSchema = z.object({
@@ -169,7 +179,7 @@ export class CreatePool extends OpenAPIRoute {
 export class GetPool extends OpenAPIRoute {
   schema = {
     request: {
-      query: z.object({
+      params: z.object({
         id: z.number().int(),
       }),
     },
@@ -189,7 +199,7 @@ export class GetPool extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const pool = await getPool(c.env, data.query.id);
+    const pool = await getPool(c.env, data.params.id);
     return c.json({ data: pool });
   }
 }
@@ -197,12 +207,20 @@ export class GetPool extends OpenAPIRoute {
 export class UpdatePool extends OpenAPIRoute {
   schema = {
     request: {
+      params: z.object({
+        id: z.number().int(),
+      }),
       body: {
         content: {
           'application/json': {
             schema: z.object({
-              id: z.number().int(),
-              status: z.number().int().min(0).max(2).optional(),
+              status: z
+                .number()
+                .int()
+                .min(0)
+                .max(2)
+                .optional()
+                .transform((val): PoolStatus | undefined => val as PoolStatus),
               feeRatio: z.number().int().min(0).max(100).optional(),
               prices: z
                 .object({
@@ -232,7 +250,7 @@ export class UpdatePool extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const existingPool = await getPool(c.env, data.body.id);
+    const existingPool = await getPool(c.env, data.params.id);
     const user = c.get('userId');
     if (user != existingPool.owner) {
       throw new GatewayServiceError(403, 'Forbidden');

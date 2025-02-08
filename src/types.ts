@@ -1,11 +1,12 @@
 import { Context } from 'hono';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
 
-export enum PoolStatus {
-  ACTIVE = 0,
-  INACTIVE = 1,
-  DELETED = 2,
-}
+export type PoolStatus = 0 | 1 | 2;
+export const PoolStatus = {
+  ACTIVE: 0,
+  INACTIVE: 1,
+  DELETED: 2,
+} as const;
 
 export class GatewayServiceError extends Error {
   code: ContentfulStatusCode;
@@ -165,16 +166,17 @@ export interface Balance {
   finalizedCost: number;
 }
 
-export enum ApiKeyStatus {
-  ACTIVE = 0,
-  INACTIVE = 1,
-  DELETED = 2,
-}
+export type ApiKeyStatus = 0 | 1 | 2;
+export const ApiKeyStatus = {
+  ACTIVE: 0,
+  INACTIVE: 1,
+  DELETED: 2,
+} as const;
 
 export interface ApiKey {
   id: number;
   name: string;
-  apiKey: string;
+  apiKey: `mizu-${string}`;
   status: ApiKeyStatus;
   createdAt: number;
   updatedAt?: number;

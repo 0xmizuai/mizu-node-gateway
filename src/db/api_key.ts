@@ -24,18 +24,19 @@ export async function createApiKey(env: Env, userId: string, name: string): Prom
         .map(b => b.toString(16).padStart(2, '0'))
         .join(''),
     );
+  const api_key = `mizu-${key.toLowerCase()}`;
   const now = Math.floor(Date.now() / 1000);
   const stmt = env.DB.prepare(
     'INSERT INTO api_keys (name, api_key, user, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?) RETURNING id',
   );
-  const result = await stmt.bind(name, key, userId, now, now).first();
+  const result = await stmt.bind(name, api_key, userId, now, now).first();
   if (result === null) {
     throw new GatewayServiceError(500, 'Failed to create API key');
   }
   return {
     id: Number(result.id),
     name: result.name as string,
-    apiKey: key,
+    apiKey: api_key,
     status: ApiKeyStatus.ACTIVE,
     createdAt: now,
     updatedAt: now,
@@ -47,11 +48,11 @@ export async function deleteApiKey(env: Env, id: number): Promise<void> {
   await stmt.bind(ApiKeyStatus.DELETED, id).run();
 }
 
-export async function getUserFromApiKey(env: Env, apiKey: string): Promise<number | null> {
-  const stmt = env.DB.prepare('SELECT user_id FROM api_keys WHERE api_key = ? AND status = ?');
+export async function getUserFromApiKey(env: Env, apiKey: string): Promise<string | null> {
+  const stmt = env.DB.prepare('SELECT user FROM api_keys WHERE api_key = ? AND status = ?');
   const result = await stmt.bind(apiKey, ApiKeyStatus.ACTIVE).first();
   if (!result) {
     return null;
   }
-  return Number(result.user_id);
+  return result.user as string;
 }
