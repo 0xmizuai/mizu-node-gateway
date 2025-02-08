@@ -6,7 +6,13 @@ import { fromHono } from 'chanfana';
 import { authMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance } from './handlers/credit';
-import { TakeJob, FinishJob, PublishInferenceJobs, GetJobResults } from './handlers/job';
+import {
+  TakeJob,
+  FinishJob,
+  PublishInferenceJobs,
+  GetJobResults,
+  ChatCompletions,
+} from './handlers/job';
 import {
   GetPoolStats,
   CreatePool,
@@ -45,6 +51,8 @@ app.use('/take_job', authMiddleware);
 app.use('/finish_job', authMiddleware);
 app.use('/publish_inference_jobs', authMiddleware);
 app.use('/job_results', authMiddleware);
+// ToDo: activate once improved authMiddleWare
+// app.use('/pool/:id/chat/completions', authMiddleware);
 
 app.use('/pool_stats', authMiddleware);
 app.use('/pools', authMiddleware);
@@ -83,6 +91,7 @@ openapi.get('/take_job', TakeJob);
 openapi.post('/finish_job', FinishJob);
 openapi.post('/publish_inference_jobs', PublishInferenceJobs);
 openapi.get('/job_results', GetJobResults);
+openapi.post('/pool/:id/chat/completions', ChatCompletions);
 
 openapi.get('/pool_stats', GetPoolStats);
 openapi.post('/new_pool', CreatePool);
