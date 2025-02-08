@@ -8,6 +8,7 @@ CREATE TABLE pools (
     maxOutput INTEGER NOT NULL,
     feeRatio INTEGER NOT NULL DEFAULT 0,
     earnings INTEGER NOT NULL DEFAULT 0,
+    settledEarnings INTEGER NOT NULL DEFAULT 0,
     lastSettledDay INTEGER NOT NULL DEFAULT 0,
     status INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),

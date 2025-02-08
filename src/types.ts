@@ -145,6 +145,7 @@ export interface PoolConfig extends PoolConfigInput {
   owner: string;
   status: number;
   earnings: number;
+  settledEarnings: number;
   lastSettledDay: number;
   createdAt?: number;
   updatedAt?: number;

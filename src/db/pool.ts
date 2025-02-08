@@ -11,6 +11,7 @@ function toPoolConfig(row: any): PoolConfig {
     maxOutput: Number(row.max_output),
     status: Number(row.status),
     earnings: Number(row.earnings),
+    settledEarnings: Number(row.settled_earnings),
     lastSettledDay: Number(row.last_settled_day),
     feeRatio: Number(row.fee_ratio),
     createdAt: Number(row.created_at),

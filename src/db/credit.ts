@@ -27,13 +27,17 @@ export async function settleJobRewards(
     'UPDATE users SET pendingCost = pendingCost - ?, ' +
       'finalizedCost = finalizedCost + ?, updatedAt = ? WHERE user = ?',
   );
-  const poolOwnerQuery = env.DB.prepare(
+  const poolRewardUpdateQuery = env.DB.prepare(
     'UPDATE pool_rewards SET earnings = earnings + ?, ' +
       'updatedAt = ? WHERE worker = ? and pool_id = ? and nday = ?',
   );
+  const poolUpdateQuery = env.DB.prepare(
+    'UPDATE pools SET earnings = earnings + ?, ' + 'updatedAt = ? WHERE id = ?',
+  );
   await env.DB.batch([
     publisherQuery.bind(jobInput.estimatedCost, totalCost, now, jobInput.publisher),
-    poolOwnerQuery.bind(totalCost, now, worker, config.id, nday),
+    poolRewardUpdateQuery.bind(totalCost, now, worker, config.id, nday),
+    poolUpdateQuery.bind(totalCost, now, config.id),
   ]);
 }
 
@@ -77,7 +81,7 @@ export async function settlePoolRewards(env: Env, pool: PoolConfig) {
 
   // update the pool earnings and lastSettledDay
   const updatePoolStmt = env.DB.prepare(
-    'UPDATE pools SET earnings = earnings + ?, lastSettledDay = ? WHERE id = ?',
+    'UPDATE pools SET settledEarnings = settledEarnings + ?, lastSettledDay = ? WHERE id = ?',
   ).bind(totalEarnings, nday, pool.id);
 
   // update all the records to be settled
