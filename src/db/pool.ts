@@ -1,4 +1,4 @@
-import { PoolConfig, GatewayServiceError, PoolConfigInput } from '../types';
+import { PoolConfig, GatewayServiceError, PoolConfigInput, PoolStatus } from '../types';
 
 function toPoolConfig(row: any): PoolConfig {
   return {
@@ -9,7 +9,7 @@ function toPoolConfig(row: any): PoolConfig {
     prices: row.prices as { input: number; output: number },
     contextLength: Number(row.context_length),
     maxOutput: Number(row.max_output),
-    status: Number(row.status),
+    status: Number(row.status) as PoolStatus,
     earnings: Number(row.earnings),
     settledEarnings: Number(row.settled_earnings),
     lastSettledDay: Number(row.last_settled_day),

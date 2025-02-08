@@ -242,6 +242,9 @@ export class SettlePoolRewards extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const pool = await getPool(c.env, data.body.id);
+    if (pool.owner != c.get('userId')) {
+      throw new GatewayServiceError(403, 'Forbidden');
+    }
     await settlePoolRewards(c.env, pool);
     return c.json({ message: 'ok' });
   }
