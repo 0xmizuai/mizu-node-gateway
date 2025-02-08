@@ -1,6 +1,12 @@
 import { Context } from 'hono';
 import { ContentfulStatusCode } from 'hono/utils/http-status';
 
+export enum PoolStatus {
+  ACTIVE = 0,
+  INACTIVE = 1,
+  DELETED = 2,
+}
+
 export class GatewayServiceError extends Error {
   code: ContentfulStatusCode;
 
@@ -143,7 +149,7 @@ export interface PoolConfigInput {
 export interface PoolConfig extends PoolConfigInput {
   id: number;
   owner: string;
-  status: number;
+  status: PoolStatus;
   earnings: number;
   settledEarnings: number;
   lastSettledDay: number;
