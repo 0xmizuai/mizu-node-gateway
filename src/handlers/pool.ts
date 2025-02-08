@@ -1,6 +1,6 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-import { getPools, createPool, getPool, updatePool } from '../db/pool';
+import { getPools, createPool, getPool, updatePool, getUserPools } from '../db/pool';
 import { GatewayServiceContext, GatewayServiceError, NodeGetQueueStatsResponse } from '../types';
 import { settlePoolRewards } from '../db/credit';
 
@@ -8,8 +8,8 @@ const poolInputSchema = z.object({
   name: z.string(),
   model: z.string(),
   prices: z.object({
-    input: z.number().int(),
-    output: z.number().int(),
+    input: z.number(),
+    output: z.number(),
   }),
   contextLength: z.number().int(),
   maxOutput: z.number().int(),
@@ -95,6 +95,36 @@ export class GetPools extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const pools = await getPools(c.env);
+    return c.json({
+      data: pools,
+    });
+  }
+}
+
+export class GetUserPools extends OpenAPIRoute {
+  schema = {
+    request: {
+      query: z.object({
+        userId: z.string(),
+      }),
+    },
+    responses: {
+      '200': {
+        description: '',
+        content: {
+          'application/json': {
+            schema: z.object({
+              data: z.array(poolSchema),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const pools = await getUserPools(c.env, data.query.userId);
     return c.json({
       data: pools,
     });

@@ -1,8 +1,8 @@
 import { ApiKey, ApiKeyStatus, GatewayServiceError } from '../types';
 
 export async function getApiKeys(env: Env, userId: string): Promise<ApiKey[]> {
-  const stmt = env.DB.prepare('SELECT * FROM api_keys WHERE user_id = ?');
-  const result = await stmt.bind(userId).all();
+  const stmt = env.DB.prepare('SELECT * FROM api_keys WHERE user = ? and status = ?');
+  const result = await stmt.bind(userId, ApiKeyStatus.ACTIVE).all();
   return result.results.map(
     row =>
       ({
@@ -26,7 +26,7 @@ export async function createApiKey(env: Env, userId: string, name: string): Prom
     );
   const now = Math.floor(Date.now() / 1000);
   const stmt = env.DB.prepare(
-    'INSERT INTO api_keys (name, api_key, user, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id',
+    'INSERT INTO api_keys (name, api_key, user, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?) RETURNING id',
   );
   const result = await stmt.bind(name, key, userId, now, now).first();
   if (result === null) {

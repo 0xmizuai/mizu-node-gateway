@@ -14,6 +14,7 @@ import {
   GetPool,
   UpdatePool,
   SettlePoolRewards,
+  GetUserPools,
 } from './handlers/pool';
 
 const app = new Hono<{
@@ -64,6 +65,7 @@ app.onError(async (err, c) => {
   if (err instanceof GatewayServiceError) {
     return c.text(err.message, err.code);
   }
+  console.error(err);
   return c.text('Internal Server Error', 500);
 });
 
@@ -85,6 +87,7 @@ openapi.get('/job_results', GetJobResults);
 openapi.get('/pool_stats', GetPoolStats);
 openapi.post('/new_pool', CreatePool);
 openapi.get('/pools', GetPools);
+openapi.get('/user_pools', GetUserPools);
 openapi.get('/pool/:id', GetPool);
 openapi.post('/update_pool/:id', UpdatePool);
 openapi.post('/settle_pool', SettlePoolRewards);
@@ -93,7 +96,7 @@ openapi.post('/deposit', Deposit);
 openapi.get('/balance', GetBalance);
 
 openapi.post('/api_key/new', CreateApiKey);
-openapi.post('/api_key/delete/:id', DeleteApiKey);
+openapi.post('/api_key/delete', DeleteApiKey);
 openapi.get('/api_key/list', ListApiKeys);
 
 // Add unauthenticated routes

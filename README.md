@@ -24,7 +24,6 @@ wrangler dev --config wrangler.local.toml --local --persist-to .wrangler/kv-data
 wrangler dev --config wrangler.toml
 ```
 
-
 ## Test CF Worker
 
 First you have to cd the project root and run the dummy node server.
@@ -47,3 +46,10 @@ poetry run python -m scripts.node_client --worker --nowait
 ```
 
 To keep it running and wait for the job results, run them without the nowait flag.
+
+## Run migrations
+
+```bash
+# Update cloudflare d1 database table
+npx wrangler d1 execute mizu-token-usage --file=./migrations/0000_create_pools.sql -c wrangler.staging.toml --remote
+```

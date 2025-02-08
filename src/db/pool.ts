@@ -7,21 +7,27 @@ function toPoolConfig(row: any): PoolConfig {
     model: row.model as string,
     owner: row.owner as string,
     prices: row.prices as { input: number; output: number },
-    contextLength: Number(row.context_length),
-    maxOutput: Number(row.max_output),
-    status: Number(row.status) as PoolStatus,
+    contextLength: Number(row.contextLength),
+    maxOutput: Number(row.maxOutput),
+    status: Number(row.status),
     earnings: Number(row.earnings),
-    settledEarnings: Number(row.settled_earnings),
-    lastSettledDay: Number(row.last_settled_day),
-    feeRatio: Number(row.fee_ratio),
-    createdAt: Number(row.created_at),
-    updatedAt: Number(row.updated_at),
+    settledEarnings: Number(row.settledEarnings),
+    lastSettledDay: Number(row.lastSettledDay),
+    feeRatio: Number(row.feeRatio),
+    createdAt: Number(row.createdAt),
+    updatedAt: Number(row.updatedAt),
   } as PoolConfig;
 }
 
 export async function getPools(env: Env): Promise<PoolConfig[]> {
   const stmt = env.DB.prepare('SELECT * FROM pools');
   const result = await stmt.all();
+  return result.results.map(toPoolConfig);
+}
+
+export async function getUserPools(env: Env, userId: string): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare('SELECT * FROM pools WHERE owner = ?');
+  const result = await stmt.bind(userId).all();
   return result.results.map(toPoolConfig);
 }
 
@@ -46,6 +52,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   );
   const now = Math.floor(Date.now() / 1000);
   const prices = JSON.stringify(pool.prices);
+  console.log(pool.name, pool.model, user, prices, pool.contextLength, pool.maxOutput, now, now);
   const result = await stmt
     .bind(pool.name, pool.model, user, prices, pool.contextLength, pool.maxOutput, now, now)
     .run()

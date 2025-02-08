@@ -50,9 +50,15 @@ export class CreateApiKey extends OpenAPIRoute {
 export class DeleteApiKey extends OpenAPIRoute {
   schema = {
     request: {
-      query: z.object({
-        id: z.number().int(),
-      }),
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              id: z.number().int(),
+            }),
+          },
+        },
+      },
     },
     responses: {
       '200': {
@@ -71,7 +77,7 @@ export class DeleteApiKey extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    await deleteApiKey(c.env, data.query.id);
+    await deleteApiKey(c.env, data.body.id);
     return c.json({ message: 'ok', success: true });
   }
 }
