@@ -1,6 +1,6 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-import { getPools, createPool, getPool, updatePool } from '../db/pool';
+import { getPools, createPool, getPool, updatePool, getUserPools } from '../db/pool';
 import {
   GatewayServiceContext,
   GatewayServiceError,
@@ -108,11 +108,6 @@ export class GetPools extends OpenAPIRoute {
 
 export class GetUserPools extends OpenAPIRoute {
   schema = {
-    request: {
-      query: z.object({
-        userId: z.string(),
-      }),
-    },
     responses: {
       '200': {
         description: '',
@@ -128,8 +123,8 @@ export class GetUserPools extends OpenAPIRoute {
   };
 
   async handle(c: GatewayServiceContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const pools = await getUserPools(c.env, data.query.userId);
+    const userId = c.get('userId');
+    const pools = await getUserPools(c.env, userId);
     return c.json({
       data: pools,
     });
