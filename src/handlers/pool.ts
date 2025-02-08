@@ -1,9 +1,5 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-<<<<<<< HEAD
-import { getPools, createPool, getPool, updatePool, getUserPools } from '../db/pool';
-import { GatewayServiceContext, GatewayServiceError, NodeGetQueueStatsResponse } from '../types';
-=======
 import { getPools, createPool, getPool, updatePool } from '../db/pool';
 import {
   GatewayServiceContext,
@@ -11,7 +7,6 @@ import {
   NodeGetQueueStatsResponse,
   PoolStatus,
 } from '../types';
->>>>>>> 0bfaaa7 (finish chat_completion endpoint)
 import { settlePoolRewards } from '../db/credit';
 
 const poolInputSchema = z.object({
