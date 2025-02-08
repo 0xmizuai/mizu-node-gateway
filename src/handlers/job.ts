@@ -267,12 +267,46 @@ export class PublishInferenceJobs extends OpenAPIRoute {
   }
 }
 
+const getJobResultRequestSchema = z.object({
+  jobIds: z.string(),
+});
+
+type JobResultValidatedData = {
+  query: z.infer<typeof getJobResultRequestSchema>;
+};
+
+async function handleGetJobResults(c: GatewayServiceContext, data: JobResultValidatedData) {
+  const queryParams = new URLSearchParams({
+    jobIds: data.query.jobIds,
+  });
+  const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/job_results?${queryParams.toString()}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+    },
+  });
+  if (resp.status !== 200) {
+    throw new GatewayServiceError(500, 'Failed to get job results');
+  }
+  const result: NodeGetJobResultsResponse = await resp.json();
+  const outputKeys = result.data.results
+    .map(result => result.jobOutputKey)
+    .filter(key => key != null);
+  const jobOutputs = await getJobOutputs(c, outputKeys);
+  return c.json({
+    results: result.data.results.map(result => ({
+      jobId: result.jobId,
+      status: result.status,
+      jobOutput: jobOutputs[result.jobOutputKey] || null,
+    })),
+  });
+}
+
 export class GetJobResults extends OpenAPIRoute {
   schema = {
     request: {
-      query: z.object({
-        jobIds: z.string(),
-      }),
+      query: getJobResultRequestSchema,
     },
     responses: {
       '200': {
@@ -303,30 +337,6 @@ export class GetJobResults extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const queryParams = new URLSearchParams({
-      jobIds: data.query.jobIds,
-    });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/job_results?${queryParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
-    if (resp.status !== 200) {
-      throw new GatewayServiceError(500, 'Failed to get job results');
-    }
-    const result: NodeGetJobResultsResponse = await resp.json();
-    const outputKeys = result.data.results
-      .map(result => result.jobOutputKey)
-      .filter(key => key != null);
-    const jobOutputs = await getJobOutputs(c, outputKeys);
-    return c.json({
-      results: result.data.results.map(result => ({
-        jobId: result.jobId,
-        status: result.status,
-        jobOutput: jobOutputs[result.jobOutputKey] || null,
-      })),
-    });
+    return handleGetJobResults(c, data);
   }
 }
