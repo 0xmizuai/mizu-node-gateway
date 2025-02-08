@@ -177,18 +177,70 @@ const ollamaInputSchema = z
   })
   .passthrough();
 
+const jobRequestSchema = z.object({
+  jobs: z.object({
+    pool: z.number().int(),
+    contexts: z.array(ollamaInputSchema),
+  }),
+});
+
+type JobValidatedData = {
+  body: z.infer<typeof jobRequestSchema>;
+};
+
+async function handleJobRequest(c: GatewayServiceContext, data: JobValidatedData) {
+  const poolConfig = await getPool(c.env, data.body.jobs.pool);
+  if (!poolConfig) {
+    throw new GatewayServiceError(404, 'Pool not found');
+  }
+
+  const inputData = await Promise.all(
+    data.body.jobs.contexts.map(async context => {
+      return {
+        context,
+        publisher: c.get('userId'),
+        estimatedCost: await estimateCost(poolConfig, context),
+      } as InferenceJobInput;
+    }),
+  );
+  const totalCost = inputData.reduce((acc, input) => acc + input.estimatedCost, 0);
+  const balance = await getBalance(c.env, c.get('userId'));
+  if (balance.balance < totalCost) {
+    throw new GatewayServiceError(400, 'Insufficient balance');
+  }
+
+  const inputKeys = await insertJobs(c, inputData);
+  const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
+    },
+    body: JSON.stringify({
+      user: c.get('userId'),
+      jobType: 4,
+      referenceId: data.body.jobs.pool,
+      jobs: inputKeys.map(inputKey => ({
+        jobCtxKey: inputKey,
+      })),
+    } as NodePublishJobsRequest),
+  });
+  if (resp.status !== 200) {
+    console.log('failed to publish jobs', await resp.text());
+    throw new GatewayServiceError(500, 'Failed to publish jobs');
+  }
+  await recordPendingCost(c.env, c.get('userId'), totalCost);
+  const result: NodePublishJobsResponse = await resp.json();
+  return c.json(result);
+}
+
 export class PublishInferenceJobs extends OpenAPIRoute {
   schema = {
     request: {
       body: {
         content: {
           'application/json': {
-            schema: z.object({
-              jobs: z.object({
-                pool: z.number().int(),
-                contexts: z.array(ollamaInputSchema),
-              }),
-            }),
+            schema: jobRequestSchema,
           },
         },
       },
@@ -211,49 +263,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const poolConfig = await getPool(c.env, data.body.jobs.pool);
-    if (!poolConfig) {
-      throw new GatewayServiceError(404, 'Pool not found');
-    }
-
-    const inputData = await Promise.all(
-      data.body.jobs.contexts.map(async context => {
-        return {
-          context,
-          publisher: c.get('userId'),
-          estimatedCost: await estimateCost(poolConfig, context),
-        } as InferenceJobInput;
-      }),
-    );
-    const totalCost = inputData.reduce((acc, input) => acc + input.estimatedCost, 0);
-    const balance = await getBalance(c.env, c.get('userId'));
-    if (balance.balance < totalCost) {
-      throw new GatewayServiceError(400, 'Insufficient balance');
-    }
-
-    const inputKeys = await insertJobs(c, inputData);
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        user: c.get('userId'),
-        jobType: 4,
-        referenceId: data.body.jobs.pool,
-        jobs: inputKeys.map(inputKey => ({
-          jobCtxKey: inputKey,
-        })),
-      } as NodePublishJobsRequest),
-    });
-    if (resp.status !== 200) {
-      console.log('failed to publish jobs', await resp.text());
-      throw new GatewayServiceError(500, 'Failed to publish jobs');
-    }
-    await recordPendingCost(c.env, c.get('userId'), totalCost);
-    const result: NodePublishJobsResponse = await resp.json();
-    return c.json(result);
+    return handleJobRequest(c, data);
   }
 }
 
