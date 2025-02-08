@@ -1,4 +1,5 @@
 import { OpenAPIRoute } from 'chanfana';
+import { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, recordPendingCost } from '../db/credit';
@@ -15,6 +16,7 @@ import {
   NodeGetJobResultsResponse,
 } from '../types';
 import { estimateCost } from '../utils';
+import { getUserFromApiKey } from '../db/api_key';
 
 export class TakeJob extends OpenAPIRoute {
   schema = {
@@ -338,5 +340,102 @@ export class GetJobResults extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     return handleGetJobResults(c, data);
+  }
+}
+
+export class ChatCompletions extends OpenAPIRoute {
+  schema = {
+    request: {
+      headers: z.object({
+        authorization: z.string().describe('Authorization: Bearer <api_key>'),
+      }),
+      params: z.object({
+        id: z.number().int(),
+      }),
+      body: {
+        content: {
+          'application/json': {
+            schema: ollamaInputSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: 'Chat completion response',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string().default('ok'),
+              result: z.any(),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const poolId = data.params.id;
+
+    // Extract the API key from the Authorization header
+    const authHeader = data.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new GatewayServiceError(401, 'Invalid authorization header format');
+    }
+    const apiKey = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Check user and add it to our env
+    const user = await getUserFromApiKey(c.env, apiKey);
+    if (!user) {
+      throw new GatewayServiceError(401, 'Invalid API key');
+    }
+    c.set('userId', user.toString());
+
+    // Validate pool existence and ownership
+    const pool = await getPool(c.env, poolId);
+    if (!pool) {
+      throw new GatewayServiceError(404, 'Pool not found');
+    }
+
+    // Prepare new data
+    // type JobRequest = z.infer<typeof jobRequestSchema>;
+    // const originalBody: z.infer<typeof ollamaInputSchema> = data.body;
+    // const newBody: JobRequest = {
+    //   jobs: {
+    //     pool: poolId,
+    //     contexts: [originalBody],
+    //   },
+    // };
+
+    const new_data: JobValidatedData = {
+      body: {
+        jobs: {
+          pool: poolId,
+          contexts: [data.body],
+        },
+      },
+    };
+
+    // get publish response
+    const response = await handleJobRequest(c, new_data);
+    if (!response.ok) {
+      throw new GatewayServiceError(response.status as ContentfulStatusCode, 'Request failed');
+    }
+
+    // the job_id to monitor
+    const res: NodePublishJobsResponse = await response.json();
+    if (res.data.jobIds.length !== 1) {
+      throw new GatewayServiceError(500, 'Failed to publish jobs');
+    }
+    const job_id = res.data.jobIds[0];
+
+    // ToDo: given a job_id, implement the polling logic for getting the job result and send it back to the chat
+
+    // ToDo: implement the schema expected by ChatBox for the response
+    return c.json({
+      message: 'ok',
+    });
   }
 }

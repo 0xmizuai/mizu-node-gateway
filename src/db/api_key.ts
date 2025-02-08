@@ -46,3 +46,12 @@ export async function deleteApiKey(env: Env, id: number): Promise<void> {
   const stmt = env.DB.prepare('UPDATE api_keys SET status = ? WHERE id = ?');
   await stmt.bind(ApiKeyStatus.DELETED, id).run();
 }
+
+export async function getUserFromApiKey(env: Env, apiKey: string): Promise<number | null> {
+  const stmt = env.DB.prepare('SELECT user_id FROM api_keys WHERE api_key = ? AND status = ?');
+  const result = await stmt.bind(apiKey, ApiKeyStatus.ACTIVE).first();
+  if (!result) {
+    return null;
+  }
+  return Number(result.user_id);
+}
