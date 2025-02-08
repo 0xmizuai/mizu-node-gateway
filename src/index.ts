@@ -53,6 +53,7 @@ app.use('/publish_inference_jobs', authMiddleware);
 app.use('/job_results', authMiddleware);
 app.use('/pool/:id/chat/completions', authMiddleware);
 
+app.use('/user_pools', authMiddleware);
 app.use('/pool_stats', authMiddleware);
 app.use('/pools', authMiddleware);
 app.use('/pool/:id', authMiddleware);
