@@ -7,7 +7,14 @@ import { authMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance } from './handlers/credit';
 import { TakeJob, FinishJob, PublishInferenceJobs, GetJobResults } from './handlers/job';
-import { GetPoolStats, CreatePool, GetPools, GetPool, UpdatePool } from './handlers/pool';
+import {
+  GetPoolStats,
+  CreatePool,
+  GetPools,
+  GetPool,
+  UpdatePool,
+  SettlePoolRewards,
+} from './handlers/pool';
 
 const app = new Hono<{
   Bindings: {
@@ -43,6 +50,7 @@ app.use('/pools', authMiddleware);
 app.use('/pool/:id', authMiddleware);
 app.use('/new_pool', authMiddleware);
 app.use('/update_pool/:id', authMiddleware);
+app.use('/settle_pool', authMiddleware);
 
 app.use('/deposit', authMiddleware);
 app.use('/balance', authMiddleware);
@@ -79,6 +87,7 @@ openapi.post('/new_pool', CreatePool);
 openapi.get('/pools', GetPools);
 openapi.get('/pool/:id', GetPool);
 openapi.post('/update_pool/:id', UpdatePool);
+openapi.post('/settle_pool', SettlePoolRewards);
 
 openapi.post('/deposit', Deposit);
 openapi.get('/balance', GetBalance);

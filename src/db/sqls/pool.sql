@@ -6,9 +6,12 @@ CREATE TABLE pools (
     prices JSONB NOT NULL,
     contextLength INTEGER NOT NULL,
     maxOutput INTEGER NOT NULL,
+    feeRatio INTEGER NOT NULL DEFAULT 0,
+    earnings INTEGER NOT NULL DEFAULT 0,
+    lastSettledDay INTEGER NOT NULL DEFAULT 0,
     status INTEGER NOT NULL DEFAULT 0,
-    createdAt INTEGER,
-    updatedAt INTEGER
+    createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+    updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
 );
 
 CREATE INDEX idx_pools_name ON pools (name);

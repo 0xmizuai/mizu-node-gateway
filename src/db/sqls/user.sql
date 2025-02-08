@@ -4,6 +4,6 @@ CREATE TABLE users (
     earnings INTEGER NOT NULL,
     pendingCost INTEGER NOT NULL,
     finalizedCost INTEGER NOT NULL,
-    createdAt INTEGER,
-    updatedAt INTEGER
+    createdAt INTEGER DEFAULT (strftime('%s', 'now')),
+    updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
 );

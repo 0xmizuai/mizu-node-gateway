@@ -1,7 +1,7 @@
 import { OpenAPIRoute } from 'chanfana';
 import { GatewayServiceContext, GatewayServiceError } from '../types';
 import { z } from 'zod';
-import { deposit, getBalance } from '../db/token';
+import { deposit, getBalance } from '../db/credit';
 
 const MIZU_ADMIN_USER = 'admin.mizu';
 

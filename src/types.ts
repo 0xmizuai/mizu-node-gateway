@@ -137,12 +137,15 @@ export interface PoolConfigInput {
   };
   contextLength: number;
   maxOutput: number;
+  feeRatio: number;
 }
 
 export interface PoolConfig extends PoolConfigInput {
   id: number;
   owner: string;
   status: number;
+  earnings: number;
+  lastSettledDay: number;
   createdAt?: number;
   updatedAt?: number;
 }

@@ -1,7 +1,7 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
-import { settleTokenUsage, getBalance, recordPendingCost } from '../db/token';
+import { settleJobRewards, getBalance, recordPendingCost } from '../db/credit';
 import { getJobInput, storeJobOutput, insertJobs, getJobOutputs } from '../kv';
 import {
   GatewayServiceContext,
@@ -125,8 +125,9 @@ export class FinishJob extends OpenAPIRoute {
     const data = await this.getValidatedData<typeof this.schema>();
     const jobOutputKey = await storeJobOutput(c, data.body.jobOutput);
 
+    const worker = c.get('userId');
     const nodeRequestData: NodeFinishJobRequest = {
-      user: c.get('userId'),
+      user: worker,
       jobId: data.body.jobId,
       jobType: data.body.jobType,
       jobCtxKey: data.body.jobCtxKey,
@@ -156,7 +157,7 @@ export class FinishJob extends OpenAPIRoute {
     if (data.body.jobType === 4) {
       const pool = await getPool(c.env, result.data.referenceId);
       const inferenceOutput = data.body.jobOutput.inferenceResult;
-      await settleTokenUsage(c.env, jobInput, pool, inferenceOutput.usage);
+      await settleJobRewards(c.env, jobInput, pool, inferenceOutput.usage, worker);
     }
     return c.json(result);
   }

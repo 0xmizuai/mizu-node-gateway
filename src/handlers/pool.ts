@@ -2,6 +2,7 @@ import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { getPools, createPool, getPool, updatePool } from '../db/pool';
 import { GatewayServiceContext, GatewayServiceError, NodeGetQueueStatsResponse } from '../types';
+import { settlePoolRewards } from '../db/credit';
 
 const poolInputSchema = z.object({
   name: z.string(),
@@ -12,12 +13,16 @@ const poolInputSchema = z.object({
   }),
   contextLength: z.number().int(),
   maxOutput: z.number().int(),
+  feeRatio: z.number().int().min(0).max(100),
 });
 
 const poolSchema = poolInputSchema.extend({
   id: z.number().int(),
   owner: z.string(),
   status: z.number().int().min(0).max(2),
+  earnings: z.number().int(),
+  settledEarnings: z.number().int(),
+  settledAt: z.number().int(),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
 });
@@ -35,12 +40,15 @@ export class GetPoolStats extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              data: z.record(
-                z.number(),
-                z.object({
-                  queueSize: z.number().int(),
-                }),
-              ),
+              message: z.string().default('ok'),
+              data: z.object({
+                stats: z.record(
+                  z.number(),
+                  z.object({
+                    queueSize: z.number().int(),
+                  }),
+                ),
+              }),
             }),
           },
         },
@@ -165,6 +173,7 @@ export class UpdatePool extends OpenAPIRoute {
             schema: z.object({
               id: z.number().int(),
               status: z.number().int().min(0).max(2).optional(),
+              feeRatio: z.number().int().min(0).max(100).optional(),
               prices: z
                 .object({
                   input: z.number().int(),
@@ -200,5 +209,40 @@ export class UpdatePool extends OpenAPIRoute {
     }
     const pool = await updatePool(c.env, existingPool, data.body);
     return c.json({ message: 'ok', data: pool });
+  }
+}
+
+export class SettlePoolRewards extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              id: z.number().int(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: '',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string().default('ok'),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const pool = await getPool(c.env, data.body.id);
+    await settlePoolRewards(c.env, pool);
+    return c.json({ message: 'ok' });
   }
 }

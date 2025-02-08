@@ -1,9 +1,7 @@
 import { PoolConfig, GatewayServiceError, PoolConfigInput } from '../types';
 
-export async function getPools(env: Env): Promise<PoolConfig[]> {
-  const stmt = env.DB.prepare('SELECT * FROM pools');
-  const result = await stmt.all();
-  return result.results.map(row => ({
+function toPoolConfig(row: any): PoolConfig {
+  return {
     id: Number(row.id),
     name: row.name as string,
     model: row.model as string,
@@ -12,9 +10,18 @@ export async function getPools(env: Env): Promise<PoolConfig[]> {
     contextLength: Number(row.context_length),
     maxOutput: Number(row.max_output),
     status: Number(row.status),
+    earnings: Number(row.earnings),
+    lastSettledDay: Number(row.last_settled_day),
+    feeRatio: Number(row.fee_ratio),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
-  }));
+  } as PoolConfig;
+}
+
+export async function getPools(env: Env): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare('SELECT * FROM pools');
+  const result = await stmt.all();
+  return result.results.map(toPoolConfig);
 }
 
 export async function getPool(env: Env, id: number): Promise<PoolConfig> {
@@ -23,18 +30,7 @@ export async function getPool(env: Env, id: number): Promise<PoolConfig> {
   if (result === null) {
     throw new GatewayServiceError(404, 'Pool not found');
   }
-  return {
-    id: Number(result.id),
-    name: result.name as string,
-    model: result.model as string,
-    owner: result.owner as string,
-    prices: result.prices as { input: number; output: number },
-    contextLength: Number(result.context_length),
-    maxOutput: Number(result.max_output),
-    status: Number(result.status),
-    createdAt: Number(result.created_at),
-    updatedAt: Number(result.updated_at),
-  } as PoolConfig;
+  return toPoolConfig(result);
 }
 
 export async function createPool(env: Env, user: string, pool: PoolConfigInput): Promise<number> {
@@ -75,32 +71,24 @@ export async function updatePool(
   }
 
   const stmt = env.DB.prepare(
-    'UPDATE pools SET prices = ?, status = ?, updatedAt = ? WHERE id = ?',
+    'UPDATE pools SET prices = ?, status = ?, feeRatio = ?, updatedAt = ? WHERE id = ?',
   );
+  const selectStmt = env.DB.prepare('SELECT * FROM pools where id = ?');
   const now = Math.floor(Date.now() / 1000);
-  const result = await stmt
-    .bind(
+  const results = await env.DB.batch([
+    stmt.bind(
       JSON.stringify(pool.prices ?? existingPool.prices),
       pool.status ?? existingPool.status,
+      pool.feeRatio ?? existingPool.feeRatio,
       now,
       existingPool.id,
-    )
-    .run();
-  if (!result.success) {
+    ),
+    selectStmt.bind(existingPool.id),
+  ]);
+  if (!results[0].success || !results[1].success) {
     throw new GatewayServiceError(500, 'Failed to update pool');
   }
-  return {
-    id: existingPool.id,
-    name: existingPool.name,
-    model: existingPool.model,
-    owner: existingPool.owner,
-    prices: pool.prices ?? existingPool.prices,
-    contextLength: existingPool.contextLength,
-    maxOutput: existingPool.maxOutput,
-    status: pool.status ?? existingPool.status,
-    createdAt: existingPool.createdAt,
-    updatedAt: now,
-  };
+  return toPoolConfig(results[1].results[0]);
 }
 
 export async function poolNameExists(env: Env, name: string): Promise<boolean> {
