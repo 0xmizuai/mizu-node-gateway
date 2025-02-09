@@ -34,7 +34,9 @@ async function verifyJWT(token: string, publicKey: string): Promise<string> {
   try {
     const publicKeyObj = await jose.importSPKI(publicKey, 'EdDSA');
     const { payload } = await jose.jwtVerify(token, publicKeyObj);
-    return (payload as jose.JWTPayload).sub as string;
+    const subject = (payload as jose.JWTPayload).sub as string;
+    const parsedSubject = JSON.parse(subject);
+    return parsedSubject.userId;
   } catch (error) {
     throw new Error('Invalid token');
   }
