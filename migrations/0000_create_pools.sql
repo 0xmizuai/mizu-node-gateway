@@ -9,6 +9,8 @@ CREATE TABLE pools (
     contextLength INTEGER NOT NULL,
     maxOutput INTEGER NOT NULL,
     feeRatio INTEGER NOT NULL DEFAULT 0,
+    inputTokens BIGINT NOT NULL DEFAULT 0,
+    outputTokens BIGINT NOT NULL DEFAULT 0,
     earnings BIGINT NOT NULL DEFAULT 0,
     settledEarnings BIGINT NOT NULL DEFAULT 0,
     lastSettledDay INTEGER NOT NULL DEFAULT 0,
