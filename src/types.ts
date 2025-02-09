@@ -162,8 +162,8 @@ export interface Balance {
   balance: number;
   deposit: number;
   earnings: number;
-  pendingCost: number;
-  finalizedCost: number;
+  lockedSpending: number;
+  spending: number;
 }
 
 export type ApiKeyStatus = 0 | 1 | 2;

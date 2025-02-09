@@ -28,7 +28,7 @@ export async function settleJobRewards(
       'finalizedCost = finalizedCost + ?, updatedAt = ? WHERE user = ?',
   );
   const poolRewardUpdateQuery = env.DB.prepare(
-    'UPDATE pool_rewards SET earnings = earnings + ?, ' +
+    'UPDATE earnings SET earnings = earnings + ?, ' +
       'updatedAt = ? WHERE worker = ? and pool_id = ? and nday = ?',
   );
   const poolUpdateQuery = env.DB.prepare(
@@ -49,7 +49,7 @@ export async function settlePoolRewards(env: Env, pool: PoolConfig) {
   }
 
   const rewards = await env.DB.prepare(
-    'SELECT worker, SUM(earnings) as earnings FROM pool_rewards ' +
+    'SELECT worker, SUM(earnings) as earnings FROM earnings ' +
       'WHERE pool_id = ? and nday <= ? and settled = 0 ' +
       'GROUP BY worker',
   )
@@ -86,7 +86,7 @@ export async function settlePoolRewards(env: Env, pool: PoolConfig) {
 
   // update all the records to be settled
   const updatePoolStatusStmt = env.DB.prepare(
-    'UPDATE pool_rewards SET settled = 1, updatedAt = ? WHERE pool_id = ? AND nday <= ?',
+    'UPDATE earnings SET settled = 1, updatedAt = ? WHERE pool_id = ? AND nday <= ?',
   ).bind(now, pool.id, nday);
 
   await env.DB.batch([
@@ -108,18 +108,18 @@ export async function deposit(env: Env, user: string, amount: number): Promise<B
 
 export async function getBalance(env: Env, user: string): Promise<Balance> {
   const selectStmt = env.DB.prepare(
-    'SELECT deposit, earnings, pendingCost, finalizedCost FROM users WHERE id = ?',
+    'SELECT deposit, earnings, lockedSpending, spending FROM users WHERE id = ?',
   );
   const result: Record<string, number> | null = await selectStmt.bind(user).first();
   if (!result) {
     throw new GatewayServiceError(404, 'User not found after deposit');
   }
-  const balance = result.deposit + result.earnings - result.pendingCost - result.finalizedCost;
+  const balance = result.deposit + result.earnings - result.lockedSpending - result.spending;
   return {
     balance,
     deposit: result.deposit,
     earnings: result.earnings,
-    pendingCost: result.pendingCost,
-    finalizedCost: result.finalizedCost,
+    lockedSpending: result.lockedSpending,
+    spending: result.spending,
   };
 }

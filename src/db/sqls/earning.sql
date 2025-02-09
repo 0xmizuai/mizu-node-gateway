@@ -1,15 +1,15 @@
-CREATE TABLE pool_rewards (
+CREATE TABLE earnings (
     id INTEGER PRIMARY KEY,
     worker TEXT NOT NULL,
     pool_id INTEGER NOT NULL,
     nday integer NOT NULL, -- per day stats
-    earnings INTEGER NOT NULL DEFAULT 0,
+    earnings BIGINT NOT NULL DEFAULT 0,
     settled INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
     UNIQUE (worker, pool_id, nday)
 );
 
-CREATE INDEX idx_rewards_worker ON rewards (worker);
-CREATE INDEX idx_rewards_pool_id ON rewards (pool_id);
-CREATE UNIQUE INDEX idx_rewards_worker_pool_id_nday ON rewards (worker, pool_id, nday);
+CREATE INDEX idx_earnings_worker ON earnings (worker);
+CREATE INDEX idx_earnings_pool_id ON earnings (pool_id);
+CREATE UNIQUE INDEX idx_earnings_worker_pool_id_nday ON earnings (worker, pool_id, nday);
