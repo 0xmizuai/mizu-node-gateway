@@ -3,6 +3,8 @@ CREATE TABLE earnings (
     worker TEXT NOT NULL,
     pool_id INTEGER NOT NULL,
     nday integer NOT NULL, -- per day stats
+    inputTokens BIGINT NOT NULL DEFAULT 0,
+    outputTokens BIGINT NOT NULL DEFAULT 0,
     earnings BIGINT NOT NULL DEFAULT 0,
     settled INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),

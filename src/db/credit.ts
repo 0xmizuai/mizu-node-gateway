@@ -23,21 +23,48 @@ export async function settleJobRewards(
 
   const now = Math.floor(Date.now() / 1000);
   const nday = Math.floor(now / 86400);
+  const spendingQuery = env.DB.prepare(
+    'UPDATE spending SET inputTokens = inputTokens + ?, ' +
+      'outputTokens = outputTokens + ?, ' +
+      'spending = spending + ?, ' +
+      'updatedAt = ? WHERE publisher = ? and pool_id = ?',
+  );
   const publisherQuery = env.DB.prepare(
     'UPDATE users SET pendingCost = pendingCost - ?, ' +
       'finalizedCost = finalizedCost + ?, updatedAt = ? WHERE user = ?',
   );
   const poolRewardUpdateQuery = env.DB.prepare(
-    'UPDATE earnings SET earnings = earnings + ?, ' +
+    'UPDATE earnings SET inputTokens = inputTokens + ?, ' +
+      'outputTokens = outputTokens + ?, ' +
+      'earnings = earnings + ?, ' +
       'updatedAt = ? WHERE worker = ? and pool_id = ? and nday = ?',
   );
   const poolUpdateQuery = env.DB.prepare(
-    'UPDATE pools SET earnings = earnings + ?, ' + 'updatedAt = ? WHERE id = ?',
+    'UPDATE pools SET inputTokens = inputTokens + ?, ' +
+      'outputTokens = outputTokens + ?, ' +
+      'earnings = earnings + ?, ' +
+      'updatedAt = ? WHERE id = ?',
   );
   await env.DB.batch([
+    spendingQuery.bind(
+      prompt_tokens,
+      completion_tokens,
+      totalCost,
+      now,
+      jobInput.publisher,
+      config.id,
+    ),
     publisherQuery.bind(jobInput.estimatedCost, totalCost, now, jobInput.publisher),
-    poolRewardUpdateQuery.bind(totalCost, now, worker, config.id, nday),
-    poolUpdateQuery.bind(totalCost, now, config.id),
+    poolRewardUpdateQuery.bind(
+      prompt_tokens,
+      completion_tokens,
+      totalCost,
+      now,
+      worker,
+      config.id,
+      nday,
+    ),
+    poolUpdateQuery.bind(prompt_tokens, completion_tokens, totalCost, now, config.id),
   ]);
 }
 
@@ -114,7 +141,7 @@ export async function getBalance(env: Env, user: string): Promise<Balance> {
   if (!result) {
     throw new GatewayServiceError(404, 'User not found after deposit');
   }
-  const balance = result.deposit + result.earnings - result.lockedSpending - result.spending;
+  const balance = result.deposit + result.earnings - result.pendingCost - result.finalizedCost;
   return {
     balance,
     deposit: result.deposit,
