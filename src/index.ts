@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 
 import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
-import { authMiddleware } from './auth';
+import { apiKeyAuthMiddleware, jwtAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance } from './handlers/credit';
 import {
@@ -46,26 +46,26 @@ app.use(
   }),
 );
 
-// Apply authMiddleware only to specific routes
-app.use('/take_job', authMiddleware);
-app.use('/finish_job', authMiddleware);
-app.use('/publish_inference_jobs', authMiddleware);
-app.use('/job_results', authMiddleware);
-app.use('/pool/:id/chat/completions', authMiddleware);
+// Apply jwtAuthMiddleware only to specific routes
+app.use('/take_job', jwtAuthMiddleware);
+app.use('/finish_job', jwtAuthMiddleware);
+app.use('/publish_inference_jobs', jwtAuthMiddleware);
+app.use('/job_results', jwtAuthMiddleware);
+app.use('/pool/:id/chat/completions', apiKeyAuthMiddleware);
 
-app.use('/user_pools', authMiddleware);
-app.use('/pool_stats', authMiddleware);
-app.use('/pool/:id', authMiddleware);
-app.use('/new_pool', authMiddleware);
-app.use('/update_pool/:id', authMiddleware);
-app.use('/settle_pool', authMiddleware);
+app.use('/user_pools', jwtAuthMiddleware);
+app.use('/pool_stats', jwtAuthMiddleware);
+app.use('/pool/:id', jwtAuthMiddleware);
+app.use('/new_pool', jwtAuthMiddleware);
+app.use('/update_pool/:id', jwtAuthMiddleware);
+app.use('/settle_pool', jwtAuthMiddleware);
 
-app.use('/deposit', authMiddleware);
-app.use('/balance', authMiddleware);
+app.use('/deposit', jwtAuthMiddleware);
+app.use('/balance', jwtAuthMiddleware);
 
-app.use('/api_key/new', authMiddleware);
-app.use('/api_key/delete/:id', authMiddleware);
-app.use('/api_key/list', authMiddleware);
+app.use('/api_key/new', jwtAuthMiddleware);
+app.use('/api_key/delete/:id', jwtAuthMiddleware);
+app.use('/api_key/list', jwtAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
