@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 
 import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
-import { apiKeyAuthMiddleware, jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware } from './auth';
+import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance, InitUser } from './handlers/credit';
 import {
