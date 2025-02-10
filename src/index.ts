@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 
 import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
-import { apiKeyAuthMiddleware, jwtAuthMiddleware } from './auth';
+import { apiKeyAuthMiddleware, jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance, InitUser } from './handlers/credit';
 import {
@@ -47,11 +47,11 @@ app.use(
 );
 
 // Apply jwtAuthMiddleware only to specific routes
-app.use('/take_job', jwtAuthMiddleware);
-app.use('/finish_job', jwtAuthMiddleware);
-app.use('/publish_inference_jobs', jwtAuthMiddleware);
-app.use('/job_results', jwtAuthMiddleware);
-app.use('/pool/:id/chat/completions', apiKeyAuthMiddleware);
+app.use('/take_job', jwtOrApiKeyAuthMiddleware);
+app.use('/finish_job', jwtOrApiKeyAuthMiddleware);
+app.use('/publish_inference_jobs', jwtOrApiKeyAuthMiddleware);
+app.use('/job_results', jwtOrApiKeyAuthMiddleware);
+app.use('/pool/:id/chat/completions', jwtOrApiKeyAuthMiddleware);
 
 app.use('/user_pools', jwtAuthMiddleware);
 app.use('/pool_stats', jwtAuthMiddleware);

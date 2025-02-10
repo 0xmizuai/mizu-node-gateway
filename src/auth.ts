@@ -4,6 +4,27 @@ import { Next } from 'hono';
 import { GatewayServiceContext } from './types';
 import { getUserFromApiKey } from './db/api_key';
 
+// Authentication middleware for JWT or API_KEY
+export async function jwtOrApiKeyAuthMiddleware(c: GatewayServiceContext, next: Next) {
+  try {
+    const token = getBearer(c);
+    if (token.startsWith('mizu-')) {
+      const userId = await getUserFromApiKey(c.env, token);
+      if (!userId) {
+        return c.text('Unauthorized', 401);
+      }
+      c.set('userId', userId);
+      await next();
+    } else {
+      const userId = await verifyJWT(token, c.env.JWT_PUB_KEY);
+      c.set('userId', userId);
+      await next();
+    }
+  } catch (error) {
+    return c.text('Unauthorized', 401);
+  }
+}
+
 // Authentication middleware for JWT (Mizu users)
 export async function jwtAuthMiddleware(c: GatewayServiceContext, next: Next) {
   try {
