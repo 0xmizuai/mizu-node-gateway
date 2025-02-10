@@ -83,7 +83,17 @@ const openapi = fromHono(app, {
       title: 'Mizu Node Gateway',
       version: '0.0.1',
     },
+    security: [
+      {
+        BearerAuth: [],
+      },
+    ],
   },
+});
+
+openapi.registry.registerComponent('securitySchemes', 'BearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
 });
 
 // Define routes
@@ -95,7 +105,6 @@ openapi.post('/pool/:id/chat/completions', ChatCompletions);
 
 openapi.get('/pool_stats', GetPoolStats);
 openapi.post('/new_pool', CreatePool);
-openapi.get('/pools', GetPools);
 openapi.get('/user_pools', GetUserPools);
 openapi.get('/pool/:id', GetPool);
 openapi.post('/update_pool/:id', UpdatePool);
@@ -112,5 +121,6 @@ openapi.get('/api_key/list', ListApiKeys);
 // Add unauthenticated routes
 app.get('/', c => c.text(''));
 app.get('/health', c => c.json({ status: 'OK' }));
+openapi.get('/pools', GetPools);
 
 export default app;

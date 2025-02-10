@@ -84,6 +84,7 @@ export class GetPoolStats extends OpenAPIRoute {
 
 export class GetPools extends OpenAPIRoute {
   schema = {
+    security: [],
     responses: {
       '200': {
         description: '',
