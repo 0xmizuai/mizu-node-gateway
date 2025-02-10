@@ -5,7 +5,7 @@ CREATE TABLE api_keys (
     user TEXT NOT NULL,
     status INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),
-    updatedAt INTEGER DEFAULT (strftime('%s', 'now')),
+    updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
 );
 
 CREATE UNIQUE INDEX idx_api_key ON api_keys (api_key);
