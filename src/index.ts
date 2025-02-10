@@ -55,7 +55,6 @@ app.use('/pool/:id/chat/completions', authMiddleware);
 
 app.use('/user_pools', authMiddleware);
 app.use('/pool_stats', authMiddleware);
-app.use('/pools', authMiddleware);
 app.use('/pool/:id', authMiddleware);
 app.use('/new_pool', authMiddleware);
 app.use('/update_pool/:id', authMiddleware);
