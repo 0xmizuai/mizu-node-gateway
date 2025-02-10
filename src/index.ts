@@ -5,7 +5,7 @@ import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
 import { apiKeyAuthMiddleware, jwtAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
-import { Deposit, GetBalance } from './handlers/credit';
+import { Deposit, GetBalance, InitUser } from './handlers/credit';
 import {
   TakeJob,
   FinishJob,
@@ -60,8 +60,9 @@ app.use('/new_pool', jwtAuthMiddleware);
 app.use('/update_pool/:id', jwtAuthMiddleware);
 app.use('/settle_pool', jwtAuthMiddleware);
 
-app.use('/deposit', jwtAuthMiddleware);
-app.use('/balance', jwtAuthMiddleware);
+app.use('/user/init', jwtAuthMiddleware);
+app.use('/user/deposit', jwtAuthMiddleware);
+app.use('/user/balance', jwtAuthMiddleware);
 
 app.use('/api_key/new', jwtAuthMiddleware);
 app.use('/api_key/delete/:id', jwtAuthMiddleware);
@@ -100,8 +101,9 @@ openapi.get('/pool/:id', GetPool);
 openapi.post('/update_pool/:id', UpdatePool);
 openapi.post('/settle_pool', SettlePoolRewards);
 
-openapi.post('/deposit', Deposit);
-openapi.get('/balance', GetBalance);
+openapi.post('/user/init', InitUser);
+openapi.post('/user/deposit', Deposit);
+openapi.get('/user/balance', GetBalance);
 
 openapi.post('/api_key/new', CreateApiKey);
 openapi.post('/api_key/delete', DeleteApiKey);

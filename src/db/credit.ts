@@ -1,6 +1,8 @@
 import { Balance, InferenceJobInput, PoolConfig } from '../types';
 import { GatewayServiceError, TokenUsage } from '../types';
 
+const DEFAULT_DEPOSIT = 1000000;
+
 export async function recordPendingCost(env: Env, userId: string, cost: number) {
   const stmt = env.DB.prepare('UPDATE users SET pendingCost = pendingCost + ? WHERE id = ?');
   const result = await stmt.bind(cost, userId).run();
@@ -149,4 +151,20 @@ export async function getBalance(env: Env, user: string): Promise<Balance> {
     lockedSpending: result.lockedSpending,
     spending: result.spending,
   };
+}
+
+export async function initUser(env: Env, user: string) {
+  const exists = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(user).first();
+  if (exists) {
+    throw new GatewayServiceError(400, 'User already exists');
+  }
+
+  const insertStmt = env.DB.prepare('INSERT OR IGNORE INTO users (id, deposit) VALUES (?, ?)').bind(
+    user,
+    DEFAULT_DEPOSIT,
+  );
+  const result = await insertStmt.run();
+  if (!result.success) {
+    throw new GatewayServiceError(500, 'Failed to insert user');
+  }
 }
