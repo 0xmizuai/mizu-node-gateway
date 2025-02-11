@@ -141,9 +141,9 @@ export async function getBalance(env: Env, user: string): Promise<Balance> {
   );
   const result: Record<string, number> | null = await selectStmt.bind(user).first();
   if (!result) {
-    throw new GatewayServiceError(404, 'User not found after deposit');
+    throw new GatewayServiceError(404, 'insufficient balance');
   }
-  const balance = result.deposit + result.earnings - result.pendingCost - result.finalizedCost;
+  const balance = result.deposit + result.earnings - result.lockedSpending - result.spending;
   return {
     balance,
     deposit: result.deposit,
