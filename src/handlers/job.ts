@@ -56,7 +56,7 @@ export class TakeJob extends OpenAPIRoute {
     const params = new URLSearchParams({
       user: user,
       jobType: data.query.jobType.toString(),
-      referenceId: data.query.referenceId.toString(),
+      referenceIds: data.query.referenceId.toString(),
     });
     const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/take_job?${params.toString()}`, {
       headers: {
@@ -65,7 +65,7 @@ export class TakeJob extends OpenAPIRoute {
       },
     });
     if (resp.status !== 200) {
-      throw new GatewayServiceError(500, 'Failed to take job');
+      throw new GatewayServiceError(500, `Failed to take job with response: ${await resp.text()}`);
     }
     const result: NodeTakeJobResponse = await resp.json();
     if (!result.data.job) {
