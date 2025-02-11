@@ -189,6 +189,7 @@ type JobValidatedData = z.infer<typeof jobRequestSchema>;
 async function handleJobRequest(
   c: GatewayServiceContext,
   jobs: JobValidatedData,
+  bulk_write: boolean,
 ): Promise<NodePublishJobsResponse> {
   const poolConfig = await getPool(c.env, jobs.pool);
   if (!poolConfig) {
@@ -210,7 +211,7 @@ async function handleJobRequest(
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
 
-  const inputKeys = await insertJobs(c, inputData);
+  const inputKeys = await insertJobs(c, inputData, bulk_write);
   const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
     method: 'POST',
     headers: {
@@ -265,7 +266,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const resp = await handleJobRequest(c, data.body.jobs);
+    const resp = await handleJobRequest(c, data.body.jobs, true);
     return c.json(resp);
   }
 }
@@ -386,7 +387,7 @@ export class ChatCompletions extends OpenAPIRoute {
       pool: poolId,
       contexts: [data.body],
     };
-    const response = await handleJobRequest(c, new_data);
+    const response = await handleJobRequest(c, new_data, false);
     if (response.data.jobIds.length !== 1) {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
