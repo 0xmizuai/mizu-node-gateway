@@ -156,6 +156,8 @@ export interface PoolConfig extends PoolConfigInput {
   lastSettledDay: number;
   createdAt?: number;
   updatedAt?: number;
+  inputTokens: number;
+  outputTokens: number;
 }
 
 export interface Balance {

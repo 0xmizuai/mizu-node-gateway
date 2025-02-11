@@ -18,8 +18,6 @@ function toPoolConfig(row: any): PoolConfig {
     feeRatio: Number(row.feeRatio),
     createdAt: Number(row.createdAt),
     updatedAt: Number(row.updatedAt),
-    inputTokens: Number(row.inputTokens),
-    outputTokens: Number(row.outputTokens),
   } as PoolConfig;
 }
 
