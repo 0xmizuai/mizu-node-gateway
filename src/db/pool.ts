@@ -10,6 +10,8 @@ function toPoolConfig(row: any): PoolConfig {
     contextLength: Number(row.contextLength),
     maxOutput: Number(row.maxOutput),
     status: Number(row.status) as PoolStatus,
+    inputTokens: Number(row.inputTokens),
+    outputTokens: Number(row.outputTokens),
     earnings: Number(row.earnings),
     settledEarnings: Number(row.settledEarnings),
     lastSettledDay: Number(row.lastSettledDay),
