@@ -359,10 +359,7 @@ export class ChatCompletions extends OpenAPIRoute {
         description: 'Chat completion response',
         content: {
           'application/json': {
-            schema: z.object({
-              message: z.string().default('ok'),
-              result: z.any(),
-            }),
+            schema: z.any(),
           },
         },
       },
