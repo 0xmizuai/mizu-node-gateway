@@ -55,7 +55,6 @@ app.use('/pool/:id/chat/completions', jwtOrApiKeyAuthMiddleware);
 
 app.use('/user_pools', jwtAuthMiddleware);
 app.use('/pool_stats', jwtAuthMiddleware);
-app.use('/pool/:id', jwtAuthMiddleware);
 app.use('/new_pool', jwtAuthMiddleware);
 app.use('/update_pool/:id', jwtAuthMiddleware);
 app.use('/settle_pool', jwtAuthMiddleware);
