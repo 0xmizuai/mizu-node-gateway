@@ -21,7 +21,7 @@ export async function settleJobRewards(
   const { prompt_tokens, completion_tokens } = usage;
   const inputCost = prompt_tokens * config.prices.input;
   const outputCost = completion_tokens * config.prices.output;
-  const totalCost = inputCost + outputCost;
+  const totalCost = Math.ceil((inputCost + outputCost) / 1000000);
 
   const now = Math.floor(Date.now() / 1000);
   const nday = Math.floor(now / 86400);

@@ -6,7 +6,7 @@ function toPoolConfig(row: any): PoolConfig {
     name: row.name as string,
     model: row.model as string,
     owner: row.owner as string,
-    prices: row.prices as { input: number; output: number },
+    prices: JSON.parse(row.prices) as { input: number; output: number },
     contextLength: Number(row.contextLength),
     maxOutput: Number(row.maxOutput),
     status: Number(row.status) as PoolStatus,

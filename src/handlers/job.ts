@@ -196,17 +196,17 @@ async function handleJobRequest(
     throw new GatewayServiceError(404, 'Pool not found');
   }
 
-  const inputData = await Promise.all(
-    jobs.contexts.map(async context => {
-      return {
-        context,
-        publisher: c.get('userId'),
-        estimatedCost: await estimateCost(poolConfig, context),
-      } as InferenceJobInput;
-    }),
-  );
+  const user = c.get('userId');
+  const inputData: InferenceJobInput[] = jobs.contexts.map(context => {
+    return {
+      context,
+      publisher: user,
+      estimatedCost: estimateCost(poolConfig, context),
+    };
+  });
+
   const totalCost = inputData.reduce((acc, input) => acc + input.estimatedCost, 0);
-  const balance = await getBalance(c.env, c.get('userId'));
+  const balance = await getBalance(c.env, user);
   if (balance.balance < totalCost) {
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
@@ -219,7 +219,7 @@ async function handleJobRequest(
       Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
     },
     body: JSON.stringify({
-      user: c.get('userId'),
+      user: user,
       jobType: 4,
       referenceId: jobs.pool,
       jobs: inputKeys.map(inputKey => ({
@@ -231,7 +231,7 @@ async function handleJobRequest(
     console.log('failed to publish jobs', await resp.text());
     throw new GatewayServiceError(500, 'Failed to publish jobs');
   }
-  await lockSpending(c.env, c.get('userId'), totalCost);
+  await lockSpending(c.env, user, totalCost);
   return (await resp.json()) as NodePublishJobsResponse;
 }
 
