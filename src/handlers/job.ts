@@ -1,7 +1,7 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
-import { settleJobRewards, getBalance, recordPendingCost } from '../db/credit';
+import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
 import { getJobInput, storeJobOutput, insertJobs, getJobOutputs } from '../kv';
 import {
   GatewayServiceContext,
@@ -231,7 +231,7 @@ async function handleJobRequest(
     console.log('failed to publish jobs', await resp.text());
     throw new GatewayServiceError(500, 'Failed to publish jobs');
   }
-  await recordPendingCost(c.env, c.get('userId'), totalCost);
+  await lockSpending(c.env, c.get('userId'), totalCost);
   return (await resp.json()) as NodePublishJobsResponse;
 }
 

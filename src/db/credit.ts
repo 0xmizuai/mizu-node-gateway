@@ -3,8 +3,8 @@ import { GatewayServiceError, TokenUsage } from '../types';
 
 const DEFAULT_DEPOSIT = 1000000;
 
-export async function recordPendingCost(env: Env, userId: string, cost: number) {
-  const stmt = env.DB.prepare('UPDATE users SET pendingCost = pendingCost + ? WHERE id = ?');
+export async function lockSpending(env: Env, userId: string, cost: number) {
+  const stmt = env.DB.prepare('UPDATE users SET lockedSpending = lockedSpending + ? WHERE id = ?');
   const result = await stmt.bind(cost, userId).run();
   if (!result.success) {
     throw new GatewayServiceError(500, 'Failed to record pending cost');
@@ -32,8 +32,8 @@ export async function settleJobRewards(
       'updatedAt = ? WHERE publisher = ? and pool_id = ?',
   );
   const publisherQuery = env.DB.prepare(
-    'UPDATE users SET pendingCost = pendingCost - ?, ' +
-      'finalizedCost = finalizedCost + ?, updatedAt = ? WHERE user = ?',
+    'UPDATE users SET lockedSpending = lockedSpending + ?, ' +
+      'spending = spending + ?, updatedAt = ? WHERE user = ?',
   );
   const poolRewardUpdateQuery = env.DB.prepare(
     'UPDATE earnings SET inputTokens = inputTokens + ?, ' +
@@ -145,7 +145,7 @@ export async function getBalance(env: Env, user: string): Promise<Balance> {
   }
   const balance = result.deposit + result.earnings - result.lockedSpending - result.spending;
   return {
-    balance,
+    balance: balance,
     deposit: result.deposit,
     earnings: result.earnings,
     lockedSpending: result.lockedSpending,

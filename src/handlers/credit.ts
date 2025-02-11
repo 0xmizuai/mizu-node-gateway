@@ -26,12 +26,7 @@ export class Deposit extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               message: z.string().default('ok'),
-              data: z.object({
-                deposit: z.number().int(),
-                earnings: z.number().int(),
-                pendingCost: z.number().int(),
-                finalizedCost: z.number().int(),
-              }),
+              data: balanceSchema,
             }),
           },
         },
@@ -50,6 +45,14 @@ export class Deposit extends OpenAPIRoute {
   }
 }
 
+const balanceSchema = z.object({
+  balance: z.number().int().optional(),
+  deposit: z.number().int(),
+  earnings: z.number().int(),
+  lockedSpending: z.number().int(),
+  spending: z.number().int(),
+});
+
 export class GetBalance extends OpenAPIRoute {
   schema = {
     responses: {
@@ -59,12 +62,7 @@ export class GetBalance extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               message: z.string().default('ok'),
-              data: z.object({
-                deposit: z.number().int(),
-                earnings: z.number().int(),
-                pendingCost: z.number().int(),
-                finalizedCost: z.number().int(),
-              }),
+              data: balanceSchema,
             }),
           },
         },
