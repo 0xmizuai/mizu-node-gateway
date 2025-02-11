@@ -6,6 +6,7 @@ const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
 export async function insertJobs(
   c: GatewayServiceContext,
   inputs: InferenceJobInput[],
+  bulk_write: boolean,
 ): Promise<string[]> {
   const now = Math.floor(Date.now() / 1000);
   const kvPairs = await Promise.all(
@@ -15,6 +16,18 @@ export async function insertJobs(
       return { key: inputKey as string, value, expiration: now + MAX_JOB_TTL };
     }),
   );
+
+  if (bulk_write) {
+    return insertJobsBulk(c, kvPairs);
+  } else {
+    return insertJobsSingle(c, kvPairs);
+  }
+}
+
+async function insertJobsBulk(
+  c: GatewayServiceContext,
+  kvPairs: { key: string; value: string; expiration: number }[],
+): Promise<string[]> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${c.env.CF_ACCOUNT_ID}/storage/kv/namespaces/${c.env.CF_KV_NAMESPACE_ID}/bulk`;
   const result = await fetch(url, {
     method: 'PUT',
@@ -34,6 +47,21 @@ export async function insertJobs(
     throw new GatewayServiceError(500, 'Failed to insert jobs');
   }
   return kvPairs.map(pair => pair.key);
+}
+
+async function insertJobsSingle(
+  c: GatewayServiceContext,
+  kvPairs: { key: string; value: string; expiration: number }[],
+): Promise<string[]> {
+  if (kvPairs.length != 1) {
+    throw new GatewayServiceError(500, 'Failed to insert jobs: invalid kv pairs');
+  }
+  try {
+    await c.env.KV.put(kvPairs[0].key, kvPairs[0].value, { expiration: kvPairs[0].expiration });
+    return [kvPairs[0].key];
+  } catch (e) {
+    throw new GatewayServiceError(500, 'Failed to insert jobs: kv put failed');
+  }
 }
 
 export async function getJobInput(
