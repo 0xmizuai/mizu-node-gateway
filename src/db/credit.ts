@@ -32,8 +32,8 @@ export async function settleJobRewards(
       'updatedAt = ? WHERE publisher = ? and pool_id = ?',
   );
   const publisherQuery = env.DB.prepare(
-    'UPDATE users SET lockedSpending = lockedSpending + ?, ' +
-      'spending = spending + ?, updatedAt = ? WHERE user = ?',
+    'UPDATE users SET lockedSpending = lockedSpending - ?, ' +
+      'spending = spending + ?, updatedAt = ? WHERE id = ?',
   );
   const poolRewardUpdateQuery = env.DB.prepare(
     'UPDATE earnings SET inputTokens = inputTokens + ?, ' +
