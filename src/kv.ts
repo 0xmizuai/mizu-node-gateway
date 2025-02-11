@@ -86,8 +86,8 @@ export async function storeJobOutput(c: GatewayServiceContext, jobOutput: object
 }
 
 export interface JobOutput {
-  inferenceOutput: object | null;
-  errorOutput: object | null;
+  inferenceResult: object | null;
+  errorResult: object | null;
 }
 
 export interface JobResult {

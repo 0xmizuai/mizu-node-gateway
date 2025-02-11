@@ -396,7 +396,7 @@ export class ChatCompletions extends OpenAPIRoute {
         }
         const job_result = job_results[0];
         if (job_result.status == 'finished' || job_result.status == 'error') {
-          const result = job_result.jobOutput?.inferenceOutput;
+          const result = job_result.jobOutput?.inferenceResult;
           if (!result) {
             throw new GatewayServiceError(500, 'Job output not found');
           }
@@ -404,6 +404,7 @@ export class ChatCompletions extends OpenAPIRoute {
         }
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
+        console.log('error: ', e);
         if (e instanceof GatewayServiceError && e.code === 408) {
           throw e;
         }
