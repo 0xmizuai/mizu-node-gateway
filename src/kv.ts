@@ -85,10 +85,21 @@ export async function storeJobOutput(c: GatewayServiceContext, jobOutput: object
   return jobDataKey as string;
 }
 
+export interface JobOutput {
+  inferenceOutput: object | null;
+  errorOutput: object | null;
+}
+
+export interface JobResult {
+  jobId: number;
+  status: string;
+  jobOutput: JobOutput | null;
+}
+
 export async function getJobOutputs(
   c: GatewayServiceContext,
   outputKeys: string[],
-): Promise<Record<string, object | null>> {
+): Promise<Record<string, JobOutput>> {
   const pairs = await Promise.all(
     outputKeys.map(async outputKey => {
       const value = await c.env.KV.get(outputKey);
@@ -99,7 +110,7 @@ export async function getJobOutputs(
     }),
   );
   return pairs.reduce((acc, pair) => {
-    acc[pair.outputKey] = pair.value;
+    acc[pair.outputKey] = pair.value as JobOutput;
     return acc;
-  }, {} as Record<string, object | null>);
+  }, {} as Record<string, JobOutput>);
 }

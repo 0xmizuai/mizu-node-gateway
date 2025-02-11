@@ -2,7 +2,7 @@ import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
-import { getJobInput, storeJobOutput, insertJobs, getJobOutputs } from '../kv';
+import { getJobInput, storeJobOutput, insertJobs, getJobOutputs, JobResult } from '../kv';
 import {
   GatewayServiceContext,
   GatewayServiceError,
@@ -275,12 +275,6 @@ const getJobResultRequestSchema = z.object({
   jobIds: z.string(),
 });
 
-interface JobResult {
-  jobId: number;
-  status: string;
-  jobOutput: object | null;
-}
-
 async function handleGetJobResults(c: GatewayServiceContext, jobIds: string): Promise<JobResult[]> {
   const queryParams = new URLSearchParams({
     jobIds: jobIds,
@@ -402,11 +396,11 @@ export class ChatCompletions extends OpenAPIRoute {
         }
         const job_result = job_results[0];
         if (job_result.status == 'finished' || job_result.status == 'error') {
-          const job_output = job_result.jobOutput;
-          if (!job_output) {
+          const result = job_result.jobOutput?.inferenceOutput;
+          if (!result) {
             throw new GatewayServiceError(500, 'Job output not found');
           }
-          return c.json(job_output);
+          return c.json(result);
         }
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
