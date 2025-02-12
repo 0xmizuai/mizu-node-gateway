@@ -49,25 +49,10 @@ export async function settleJobRewards(
       'updatedAt = ? WHERE id = ?',
   );
   await env.DB.batch([
-    spendingQuery.bind(
-      prompt_tokens,
-      completion_tokens,
-      totalCost,
-      now,
-      jobInput.publisher,
-      config.id,
-    ),
+    spendingQuery.bind(inputTokens, outputTokens, totalCost, now, jobInput.publisher, config.id),
     publisherQuery.bind(jobInput.estimatedCost, totalCost, now, jobInput.publisher),
-    poolRewardUpdateQuery.bind(
-      prompt_tokens,
-      completion_tokens,
-      totalCost,
-      now,
-      worker,
-      config.id,
-      nday,
-    ),
-    poolUpdateQuery.bind(prompt_tokens, completion_tokens, totalCost, now, config.id),
+    poolRewardUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, worker, config.id, nday),
+    poolUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, config.id),
   ]);
 }
 

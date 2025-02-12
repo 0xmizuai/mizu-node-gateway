@@ -155,9 +155,9 @@ export class FinishJob extends OpenAPIRoute {
     if (resp.status !== 200) {
       throw new GatewayServiceError(500, 'Failed to finish job');
     }
+    const result: NodeFinishJobResponse = await resp.json();
 
     const outputs = await storeJobOutputs(c, jobOutputKey, data.body.jobOutputs, true);
-    const result: NodeFinishJobResponse = await resp.json();
     if (data.body.jobType === 4) {
       const pool = await getPool(c.env, result.data.referenceId);
       const usages = outputs.map(output => output.inferenceResult?.usage || 0);
