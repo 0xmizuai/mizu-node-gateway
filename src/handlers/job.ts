@@ -178,6 +178,7 @@ const ollamaInputSchema = z
     ),
     temperature: z.number().min(0).max(2).default(1),
     maxTokens: z.number().int().min(1).max(8192).default(4096),
+    stream: z.boolean().default(false),
   })
   .passthrough();
 
@@ -383,43 +384,63 @@ export class ChatCompletions extends OpenAPIRoute {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
 
-    return new Response(
-      new ReadableStream({
-        async start(controller) {
-          const encoder = new TextEncoder();
-          const job_id = response.data.jobIds[0];
-          const startTime = Date.now();
-          let processed = 0;
+    const job_id = response.data.jobIds[0];
+    const jobOutputKey = `${job_id}_output`;
+    const startTime = Date.now();
 
-          while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
-            try {
-              const jobOutputKey = `${job_id}_output`;
-              const job_result = await getJobResult(c, jobOutputKey);
-              if (job_result && job_result.value.length > processed) {
-                for (let i = processed; i < job_result.value.length; i++) {
-                  const result = job_result.value[i].inferenceResult;
-                  controller.enqueue(encoder.encode(result));
+    if (data.body.stream) {
+      return new Response(
+        new ReadableStream({
+          async start(controller) {
+            const encoder = new TextEncoder();
+            let processed = 0;
+
+            while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
+              try {
+                const job_result = await getJobResult(c, jobOutputKey);
+                if (job_result && job_result.value.length > processed) {
+                  for (let i = processed; i < job_result.value.length; i++) {
+                    const result = job_result.value[i].inferenceResult;
+                    controller.enqueue(encoder.encode(JSON.stringify(result)));
+                  }
+                  processed = job_result.value.length;
+                  if (job_result.finished) {
+                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                    controller.close();
+                    return;
+                  }
                 }
-                processed = job_result.value.length;
-                if (job_result.finished) {
-                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                  controller.close();
-                  return;
+                await new Promise(resolve => setTimeout(resolve, 500));
+              } catch (e) {
+                console.log('error: ', e);
+                if (e instanceof GatewayServiceError && e.code === 408) {
+                  throw e;
                 }
+                await new Promise(resolve => setTimeout(resolve, 500));
               }
-              await new Promise(resolve => setTimeout(resolve, 500));
-            } catch (e) {
-              console.log('error: ', e);
-              if (e instanceof GatewayServiceError && e.code === 408) {
-                throw e;
-              }
-              await new Promise(resolve => setTimeout(resolve, 500));
             }
+            throw new GatewayServiceError(408, 'Request timed out');
+          },
+        }),
+      );
+    } else {
+      while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
+        try {
+          const job_result = await getJobResult(c, jobOutputKey);
+          if (job_result && job_result.value.length > 0) {
+            const result = job_result.value[0].inferenceResult;
+            return c.json(result);
           }
-          throw new GatewayServiceError(408, 'Request timed out');
-        },
-      }),
-    );
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+          console.log('error: ', e);
+          if (e instanceof GatewayServiceError && e.code === 408) {
+            throw e;
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    }
   }
 }
 
