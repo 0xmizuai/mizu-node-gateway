@@ -8,6 +8,17 @@ export const PoolStatus = {
   DELETED: 2,
 } as const;
 
+export const JobStatus = {
+  PENDING: 0,
+  ASSIGNED: 1,
+  COMPLETED: 2,
+  FAILED: 3,
+} as const;
+
+export const JobType = {
+  INFERENCE: 4,
+} as const;
+
 export class GatewayServiceError extends Error {
   code: ContentfulStatusCode;
 
@@ -38,7 +49,7 @@ export interface WorkerJob {
   jobId: number;
   jobType: number;
   referenceId: number;
-  jobCtxKey: string;
+  jobCtx: InferenceContext;
 }
 
 export interface NodeTakeJobResponse {
@@ -135,7 +146,7 @@ export interface PoolConfigInput {
 export interface PoolConfig extends PoolConfigInput {
   id: number;
   owner: string;
-  datasetId: string;
+  databaseId: string;
   status: PoolStatus;
   earnings: number;
   settledEarnings: number;

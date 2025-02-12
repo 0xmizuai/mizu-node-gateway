@@ -1,4 +1,15 @@
-import { InferenceContext, JobOutput, JobResult, JobResultDB, PoolConfig } from '../types';
+import { Redis } from '@upstash/redis/cloudflare';
+
+import {
+  InferenceContext,
+  JobOutput,
+  JobResult,
+  JobResultDB,
+  JobStatus,
+  JobType,
+  PoolConfig,
+  WorkerJob,
+} from '../types';
 import { GatewayServiceError } from '../types';
 
 const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
@@ -7,7 +18,6 @@ const JOB_DATA_TABLE_NAME = 'job_data';
 const CREATE_JOB_DATA_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
   id INTEGER PRIMARY KEY,
-  jobId INTEGER UNIQUE,
   input JSONB NOT NULL DEFAULT '{}',
   outputs JSONB NOT NULL DEFAULT '[]',
   status INTEGER NOT NULL DEFAULT 0,
@@ -21,6 +31,10 @@ CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
 
 CREATE INDEX idx_job_data_expiredAt ON job_data (expiredAt);
 `;
+
+function jobQueuekey(poolId: number) {
+  return `pool_cache_${poolId}`;
+}
 
 async function query(env: Env, dbId: string, sql: string, params: any[]): Promise<any[]> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${dbId}/query`;
@@ -46,7 +60,7 @@ async function query(env: Env, dbId: string, sql: string, params: any[]): Promis
   return data.result.results;
 }
 
-export async function createPoolCacheDB(env: Env, pool_name: string): Promise<string> {
+export async function createPoolCacheDB(env: Env, poolName: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database`;
   const result = await fetch(url, {
@@ -56,7 +70,7 @@ export async function createPoolCacheDB(env: Env, pool_name: string): Promise<st
       Authorization: `Bearer ${env.CF_API_TOKEN}`,
     },
     body: JSON.stringify({
-      name: `pool_cache_${pool_name}_${now}`,
+      name: `pool_cache_${poolName}_${now}`,
     }),
   });
   if (result.status !== 200) {
@@ -68,12 +82,12 @@ export async function createPoolCacheDB(env: Env, pool_name: string): Promise<st
     console.error(`Failed to insert jobs: ${JSON.stringify(data)}`);
     throw new GatewayServiceError(500, 'Failed to create job cache database');
   }
-  const db_id = data.result.uuid;
-  if (!db_id) {
+  const dbId = data.result.uuid;
+  if (!dbId) {
     throw new GatewayServiceError(500, 'Failed to create job cache database');
   }
-  await query(env, db_id, CREATE_JOB_DATA_TABLE_SQL, []);
-  return db_id;
+  await query(env, dbId, CREATE_JOB_DATA_TABLE_SQL, []);
+  return dbId;
 }
 
 export async function insertJobs(
@@ -103,38 +117,76 @@ export async function insertJobs(
     .join(',')}
       RETURNING id
     `;
-  const result: { id: number }[] = await query(env, pool.datasetId, sql, values.flat());
-  return result.map(result => result.id);
+  const result: { id: number }[] = await query(env, pool.databaseId, sql, values.flat());
+  const jobIds = result.map(result => result.id);
+  const redis = Redis.fromEnv(env);
+  await redis.rpush(jobQueuekey(pool.id), ...jobIds);
+  return jobIds;
 }
 
-export async function updateJobIds(
+export async function takeJob(
   env: Env,
   pool: PoolConfig,
-  jobIds: number[],
-  dataIds: number[],
-): Promise<void> {
-  if (jobIds.length !== dataIds.length) {
-    throw new GatewayServiceError(400, 'jobIds and dataIds must have the same length');
+  worker: string,
+): Promise<WorkerJob | null> {
+  const redis = Redis.fromEnv(env);
+  const jobId = await redis.lpop(jobQueuekey(pool.id));
+  if (!jobId) {
+    return null;
   }
-  const values = jobIds.map((jobId, index) => [jobId, dataIds[index]]).flat();
+  const now = Math.floor(Date.now() / 1000);
   const sql = `
-        UPDATE ${JOB_DATA_TABLE_NAME} 
-        SET jobId = CASE id 
-            ${dataIds.map(() => `WHEN ? THEN ?`).join('\n            ')}
-        END
-        WHERE id IN (${dataIds.map(() => '?').join(', ')})
-    `;
-  const params = [...values, ...dataIds];
-  await query(env, pool.datasetId, sql, params);
+      UPDATE ${JOB_DATA_TABLE_NAME} 
+      SET assigner = ?, status = ?, updatedAt = ?
+      WHERE id = ?
+      RETURNING input`;
+  const results: { input: InferenceContext }[] = await query(env, pool.databaseId, sql, [
+    worker,
+    JobStatus.ASSIGNED,
+    now,
+    jobId,
+  ]);
+  if (results.length === 0) {
+    return null;
+  }
+  return {
+    jobId: parseInt(jobId),
+    jobType: JobType.INFERENCE,
+    referenceId: pool.id,
+    jobCtx: results[0].input,
+  };
 }
 
-export async function storeJobOutputs(
+export async function getJob(
+  env: Env,
+  pool: PoolConfig,
+  jobId: number,
+): Promise<{
+  assigner: string;
+  status: number;
+} | null> {
+  const sql = `
+      SELECT assigner, status FROM ${JOB_DATA_TABLE_NAME} WHERE id = ?
+    `;
+  const results: { assigner: string; status: number }[] = await query(env, pool.databaseId, sql, [
+    jobId,
+  ]);
+  if (results.length === 0) {
+    return null;
+  }
+  return {
+    assigner: results[0].assigner,
+    status: results[0].status,
+  };
+}
+
+export async function submitJobOutputs(
   env: Env,
   pool: PoolConfig,
   jobId: number,
   status: number,
   jobOutputs: JobOutput[],
-): Promise<{ publisher: string; estimatedCost: number }> {
+): Promise<{ publisher: string; estimatedCost: number; outputs: JobOutput[] }> {
   const now = Math.floor(Date.now() / 1000);
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
@@ -144,33 +196,15 @@ export async function storeJobOutputs(
       ),
       status = ?,
       updatedAt = ?
-      WHERE jobId = ?
-      RETURNING publisher, estimatedCost
+      WHERE id = ?
+      RETURNING publisher, estimatedCost, json(outputs)
     `;
-  const results: { publisher: string; estimatedCost: number }[] = await query(
+  const results: { publisher: string; estimatedCost: number; outputs: JobOutput[] }[] = await query(
     env,
-    pool.datasetId,
+    pool.databaseId,
     sql,
     [jobOutputs, status, now, jobId],
   );
-  return results[0];
-}
-
-export async function getJobContext(
-  env: Env,
-  dbId: string,
-  jobId: number,
-): Promise<InferenceContext> {
-  const sql = `
-      SELECT COALESCE(json(input), json_object()) as input 
-      FROM ${JOB_DATA_TABLE_NAME} 
-      WHERE jobId = ?
-    `;
-  const params = [jobId];
-  const results: InferenceContext[] = await query(env, dbId, sql, params);
-  if (results.length === 0) {
-    throw new GatewayServiceError(404, 'Job not found');
-  }
   return results[0];
 }
 
@@ -180,18 +214,18 @@ export async function getJobResultsMap(
   pool: PoolConfig,
 ): Promise<Record<number, JobResult>> {
   const sql = `
-      SELECT jobId, status, COALESCE(json(outputs), json_array()) as outputs 
+      SELECT id, status, COALESCE(json(outputs), json_array()) as outputs 
       FROM ${JOB_DATA_TABLE_NAME} 
-      WHERE jobId IN (${jobIds.map(() => '?').join(',')})
+      WHERE id IN (${jobIds.map(() => '?').join(',')})
     `;
-  const results: { jobId: number; status: number; outputs: JobOutput[] }[] = await query(
+  const results: { id: number; status: number; outputs: JobOutput[] }[] = await query(
     env,
-    pool.datasetId,
+    pool.databaseId,
     sql,
     jobIds,
   );
   return results.reduce((acc, result) => {
-    acc[result.jobId] = {
+    acc[result.id] = {
       jobOutputs: result.outputs,
       status: result.status,
     };
@@ -213,11 +247,11 @@ export async function getJobResult(
         )
       ) as outputs, status 
       FROM ${JOB_DATA_TABLE_NAME} 
-      WHERE jobId = ?
+      WHERE id = ?
     `;
   const results: { outputs: JobOutput[]; status: number }[] = await query(
     env,
-    pool.datasetId,
+    pool.databaseId,
     sql,
     [startIndex, jobId],
   );
@@ -232,17 +266,4 @@ export async function getJobResult(
     outputs: result.outputs,
     status: result.status,
   };
-}
-
-export async function updateAssigner(
-  env: Env,
-  pool: PoolConfig,
-  jobId: number,
-  assigner: string,
-): Promise<void> {
-  const sql = `
-      UPDATE ${JOB_DATA_TABLE_NAME} 
-      SET assigner = ?
-      WHERE jobId = ?`;
-  await query(env, pool.datasetId, sql, [assigner, jobId]);
 }

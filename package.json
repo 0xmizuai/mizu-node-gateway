@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "chanfana": "^2.6.3",
+    "cloudflare": "link:@upstash/redis/cloudflare",
     "hono": "^4.6.18",
     "jose": "^5.9.6",
     "zod": "^3.24.1"

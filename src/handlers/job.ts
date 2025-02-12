@@ -3,23 +3,14 @@ import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
 import {
-  getJobContext,
-  storeJobOutputs,
   insertJobs,
   getJobResult,
   getJobResultsMap,
-  updateJobIds,
-  updateAssigner,
+  takeJob,
+  submitJobOutputs,
+  getJob,
 } from '../db/job_cache';
-import {
-  GatewayServiceContext,
-  GatewayServiceError,
-  NodeTakeJobResponse,
-  NodeFinishJobRequest,
-  NodeFinishJobResponse,
-  NodePublishJobsRequest,
-  NodePublishJobsResponse,
-} from '../types';
+import { GatewayServiceContext, GatewayServiceError, JobStatus } from '../types';
 import { estimateCost } from '../utils';
 
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -58,37 +49,11 @@ export class TakeJob extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const user = c.get('userId');
-    const params = new URLSearchParams({
-      user: user,
-      jobType: data.query.jobType.toString(),
-      referenceIds: data.query.referenceId.toString(),
-    });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/take_job?${params.toString()}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
-    if (resp.status !== 200) {
-      throw new GatewayServiceError(500, `Failed to take job with response: ${await resp.text()}`);
-    }
-    const result: NodeTakeJobResponse = await resp.json();
-    if (!result.data.job) {
-      throw new GatewayServiceError(404, 'No job available');
-    }
-    const pool = await getPool(c.env, result.data.job.referenceId);
-    const context = await getJobContext(c.env, pool.datasetId, result.data.job.jobId);
-    await updateAssigner(c.env, pool, result.data.job.jobId, user);
+    const pool = await getPool(c.env, data.query.referenceId);
+    const job = await takeJob(c.env, pool, user);
     return c.json({
       message: 'ok',
-      data: {
-        job: {
-          jobId: result.data.job.jobId,
-          jobType: result.data.job.jobType,
-          referenceId: result.data.job.referenceId,
-          jobCtx: context,
-        },
-      },
+      data: { job },
     });
   }
 }
@@ -101,8 +66,10 @@ export class FinishJob extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               jobId: z.number().int(),
+              referenceId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
               jobOutputs: z.array(jobOutputSchema),
+              finished: z.boolean().default(true),
             }),
           },
         },
@@ -126,34 +93,45 @@ export class FinishJob extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const worker = c.get('userId');
-    const nodeRequestData: NodeFinishJobRequest = {
-      user: worker,
-      jobId: data.body.jobId,
-      jobType: data.body.jobType,
-    };
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/finish_job`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-      body: JSON.stringify(nodeRequestData),
-    });
-    if (resp.status !== 200) {
-      throw new GatewayServiceError(500, 'Failed to finish job');
+    const pool = await getPool(c.env, data.body.referenceId);
+    const job = await getJob(c.env, pool, data.body.jobId);
+    if (!job) {
+      throw new GatewayServiceError(404, 'Job not found');
     }
-    const result: NodeFinishJobResponse = await resp.json();
-    const pool = await getPool(c.env, result.data.referenceId);
-    const { publisher, estimatedCost } = await storeJobOutputs(
+    if (job.assigner !== worker) {
+      throw new GatewayServiceError(403, 'Job not assigned to this worker');
+    }
+    if (job.status != JobStatus.ASSIGNED) {
+      throw new GatewayServiceError(400, 'Job already finished');
+    }
+
+    let status: number = JobStatus.ASSIGNED;
+    if (data.body.finished) {
+      if (data.body.jobOutputs.some(output => output.errorResult)) {
+        status = JobStatus.FAILED;
+      } else {
+        status = JobStatus.COMPLETED;
+      }
+    }
+    const { publisher, estimatedCost, outputs } = await submitJobOutputs(
       c.env,
       pool,
       data.body.jobId,
-      result.data.status,
+      status,
       data.body.jobOutputs,
     );
-    const usages = data.body.jobOutputs.map(output => output.inferenceResult?.usage || 0);
-    await settleJobRewards(c.env, publisher, estimatedCost, pool, usages, worker);
-    return c.json(result);
+    if (data.body.finished) {
+      const usages = outputs
+        .map(output => output.inferenceResult?.usage || null)
+        .filter(usage => usage !== null);
+      if (usages.length == 0) {
+        throw new GatewayServiceError(400, 'No usage data');
+      }
+      await settleJobRewards(c.env, publisher, estimatedCost, pool, usages, worker);
+    }
+    return c.json({
+      message: 'ok',
+    });
   }
 }
 
@@ -182,7 +160,7 @@ type JobValidatedData = z.infer<typeof jobRequestSchema>;
 async function handleJobRequest(
   c: GatewayServiceContext,
   jobs: JobValidatedData,
-): Promise<NodePublishJobsResponse> {
+): Promise<number[]> {
   const poolConfig = await getPool(c.env, jobs.pool);
   if (!poolConfig) {
     throw new GatewayServiceError(404, 'Pool not found');
@@ -202,28 +180,9 @@ async function handleJobRequest(
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
 
-  const dataIds = await insertJobs(c.env, poolConfig, user, inputData);
-  const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-    },
-    body: JSON.stringify({
-      user: user,
-      jobType: 4,
-      referenceId: jobs.pool,
-    } as NodePublishJobsRequest),
-  });
-  if (resp.status !== 200) {
-    console.log('failed to publish jobs', await resp.text());
-    throw new GatewayServiceError(500, 'Failed to publish jobs');
-  }
-  const result: NodePublishJobsResponse = await resp.json();
-  const jobIds = result.data.jobIds;
-  await updateJobIds(c.env, poolConfig, jobIds, dataIds);
+  const jobIds = await insertJobs(c.env, poolConfig, user, inputData);
   await lockSpending(c.env, user, totalCost);
-  return result;
+  return jobIds;
 }
 
 export class PublishInferenceJobs extends OpenAPIRoute {
@@ -257,8 +216,12 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const resp = await handleJobRequest(c, data.body.jobs);
-    return c.json(resp);
+    const jobIds = await handleJobRequest(c, data.body.jobs);
+    return c.json({
+      data: {
+        jobIds: jobIds,
+      },
+    });
   }
 }
 
@@ -344,14 +307,13 @@ export class ChatCompletions extends OpenAPIRoute {
       pool: poolId,
       contexts: [data.body],
     };
-    const response = await handleJobRequest(c, new_data);
-    if (response.data.jobIds.length !== 1) {
+    const jobIds = await handleJobRequest(c, new_data);
+    if (jobIds.length !== 1) {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
 
-    const jobId = response.data.jobIds[0];
+    const jobId = jobIds[0];
     const startTime = Date.now();
-
     if (data.body.stream) {
       return new Response(
         new ReadableStream({
@@ -402,41 +364,5 @@ export class ChatCompletions extends OpenAPIRoute {
         }
       }
     }
-  }
-}
-
-export class SubmitJobOutput extends OpenAPIRoute {
-  schema = {
-    request: {
-      body: {
-        content: {
-          'application/json': {
-            schema: z.object({
-              jobId: z.number().int(),
-              jobOutputs: z.array(jobOutputSchema),
-            }),
-          },
-        },
-      },
-    },
-    responses: {
-      '200': {
-        description: 'Job result submitted successfully',
-        content: {
-          'application/json': {
-            schema: z.object({
-              message: z.string().default('ok'),
-            }),
-          },
-        },
-      },
-    },
-  };
-
-  async handle(c: GatewayServiceContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const pool = await getPool(c.env, data.body.jobId);
-    await storeJobOutputs(c.env, pool, data.body.jobId, 0, data.body.jobOutputs);
-    return c.json({ message: 'ok' });
   }
 }

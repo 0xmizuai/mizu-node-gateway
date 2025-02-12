@@ -10,6 +10,9 @@ importers:
       chanfana:
         specifier: ^2.6.3
         version: 2.6.3
+      cloudflare:
+        specifier: link:@upstash/redis/cloudflare
+        version: link:@upstash/redis/cloudflare
       hono:
         specifier: ^4.6.18
         version: 4.6.20
