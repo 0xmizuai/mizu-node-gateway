@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
 import {
-  getJobInput,
+  getJobContext,
   storeJobOutputs,
   insertJobs,
   getJobResult,
@@ -77,7 +77,7 @@ export class TakeJob extends OpenAPIRoute {
       throw new GatewayServiceError(404, 'No job available');
     }
     const pool = await getPool(c.env, result.data.job.referenceId);
-    const jobInput = await getJobInput(c.env, pool.datasetId, result.data.job.jobId);
+    const context = await getJobContext(c.env, pool.datasetId, result.data.job.jobId);
     await updateAssigner(c.env, pool, result.data.job.jobId, user);
     return c.json({
       message: 'ok',
@@ -86,7 +86,7 @@ export class TakeJob extends OpenAPIRoute {
           jobId: result.data.job.jobId,
           jobType: result.data.job.jobType,
           referenceId: result.data.job.referenceId,
-          jobCtx: jobInput.context,
+          jobCtx: context,
         },
       },
     });
@@ -189,10 +189,9 @@ async function handleJobRequest(
   }
 
   const user = c.get('userId');
-  const inputData: InferenceJobInput[] = jobs.contexts.map(context => {
+  const inputData = jobs.contexts.map(context => {
     return {
       context,
-      publisher: user,
       estimatedCost: estimateCost(poolConfig, context),
     };
   });
@@ -203,7 +202,7 @@ async function handleJobRequest(
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
 
-  const dataIds = await insertJobs(c.env, poolConfig, inputData);
+  const dataIds = await insertJobs(c.env, poolConfig, user, inputData);
   const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/publish_inference_jobs`, {
     method: 'POST',
     headers: {

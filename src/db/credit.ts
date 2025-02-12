@@ -1,4 +1,4 @@
-import { Balance, InferenceJobInput, PoolConfig } from '../types';
+import { Balance, PoolConfig } from '../types';
 import { GatewayServiceError, TokenUsage } from '../types';
 
 const DEFAULT_DEPOSIT = 1000000;

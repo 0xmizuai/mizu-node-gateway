@@ -1,11 +1,4 @@
-import {
-  InferenceContext,
-  InferenceJobInput,
-  JobOutput,
-  JobResult,
-  JobResultDB,
-  PoolConfig,
-} from '../types';
+import { InferenceContext, JobOutput, JobResult, JobResultDB, PoolConfig } from '../types';
 import { GatewayServiceError } from '../types';
 
 const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
@@ -86,17 +79,16 @@ export async function createPoolCacheDB(env: Env, pool_name: string): Promise<st
 export async function insertJobs(
   env: Env,
   pool: PoolConfig,
-  inputs: InferenceJobInput[],
+  publisher: string,
+  inputData: {
+    context: InferenceContext;
+    estimatedCost: number;
+  }[],
 ): Promise<number[]> {
   const now = Math.floor(Date.now() / 1000);
   const values = await Promise.all(
-    inputs.map(async input => {
-      return [
-        input.publisher,
-        input.estimatedCost,
-        JSON.stringify(input.context),
-        now + MAX_JOB_TTL,
-      ];
+    inputData.map(async input => {
+      return [publisher, input.estimatedCost, JSON.stringify(input.context), now + MAX_JOB_TTL];
     }),
   );
   const fields = [
@@ -164,11 +156,11 @@ export async function storeJobOutputs(
   return results[0];
 }
 
-export async function getJobInput(
+export async function getJobContext(
   env: Env,
   dbId: string,
   jobId: number,
-): Promise<InferenceJobInput> {
+): Promise<InferenceContext> {
   const sql = `
       SELECT COALESCE(json(input), json_object()) as input 
       FROM ${JOB_DATA_TABLE_NAME} 
