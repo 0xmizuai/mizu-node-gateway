@@ -1,4 +1,5 @@
 import { PoolConfig, GatewayServiceError, PoolConfigInput, PoolStatus } from '../types';
+import { createPoolCacheDB } from './job_cache';
 
 function toPoolConfig(row: any): PoolConfig {
   return {
@@ -49,14 +50,24 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
 
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      'contextLength, maxOutput, createdAt, updatedAt, database_id) VALUES ' +
+      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
   );
   const now = Math.floor(Date.now() / 1000);
   const prices = JSON.stringify(pool.prices);
-  console.log(pool.name, pool.model, user, prices, pool.contextLength, pool.maxOutput, now, now);
+  const database_id = await createPoolCacheDB(env, pool.name);
   const result = await stmt
-    .bind(pool.name, pool.model, user, prices, pool.contextLength, pool.maxOutput, now, now)
+    .bind(
+      pool.name,
+      pool.model,
+      user,
+      prices,
+      pool.contextLength,
+      pool.maxOutput,
+      now,
+      now,
+      database_id,
+    )
     .run()
     .catch((err: any) => {
       if (err.code === 2067) {

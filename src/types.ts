@@ -51,29 +51,20 @@ export interface NodeFinishJobRequest {
   user: string;
   jobId: number;
   jobType: number;
-  jobCtxKey: string;
-  jobOutputKey: string;
-  jobCtx: object | null;
-  jobOutput: object | null;
 }
 
 export interface NodeFinishJobResponse {
   data: {
     referenceId: number;
     publisher: string;
-    success: boolean;
+    status: number;
   };
-}
-
-export interface NodeJobInput {
-  jobCtxKey: string;
 }
 
 export interface NodePublishJobsRequest {
   user: string;
   jobType: number;
   referenceId: number;
-  jobs: NodeJobInput[];
 }
 
 export interface NodePublishJobsResponse {
@@ -123,12 +114,6 @@ export interface InferenceContext {
   estimatedCost?: number;
 }
 
-export interface InferenceJobInput {
-  publisher: string;
-  estimatedCost: number;
-  context: InferenceContext;
-}
-
 export interface TokenUsage {
   prompt_tokens: number;
   completion_tokens: number;
@@ -150,6 +135,7 @@ export interface PoolConfigInput {
 export interface PoolConfig extends PoolConfigInput {
   id: number;
   owner: string;
+  datasetId: string;
   status: PoolStatus;
   earnings: number;
   settledEarnings: number;
@@ -182,4 +168,19 @@ export interface ApiKey {
   status: ApiKeyStatus;
   createdAt: number;
   updatedAt?: number;
+}
+
+export interface JobOutput {
+  inferenceResult?: any | null;
+  errorResult?: any | null;
+}
+
+export interface JobResult {
+  status: number;
+  jobOutputs: JobOutput[] | null;
+}
+
+export interface JobResultDB {
+  outputs: JobOutput[];
+  status: number;
 }

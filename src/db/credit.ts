@@ -13,7 +13,8 @@ export async function lockSpending(env: Env, userId: string, cost: number) {
 
 export async function settleJobRewards(
   env: Env,
-  jobInput: InferenceJobInput,
+  publisher: string,
+  estimatedCost: number,
   config: PoolConfig,
   usages: TokenUsage[],
   worker: string,
@@ -49,8 +50,8 @@ export async function settleJobRewards(
       'updatedAt = ? WHERE id = ?',
   );
   await env.DB.batch([
-    spendingQuery.bind(inputTokens, outputTokens, totalCost, now, jobInput.publisher, config.id),
-    publisherQuery.bind(jobInput.estimatedCost, totalCost, now, jobInput.publisher),
+    spendingQuery.bind(inputTokens, outputTokens, totalCost, now, publisher, config.id),
+    publisherQuery.bind(estimatedCost, totalCost, now, publisher),
     poolRewardUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, worker, config.id, nday),
     poolUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, config.id),
   ]);
