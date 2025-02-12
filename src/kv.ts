@@ -75,42 +75,81 @@ export async function getJobInput(
   return JSON.parse(jobCtx as string) as InferenceJobInput;
 }
 
-export async function storeJobOutput(c: GatewayServiceContext, jobOutput: object): Promise<string> {
-  const value = JSON.stringify(jobOutput);
-  const jobDataKey = await md5(value);
-  const now = Math.floor(Date.now() / 1000);
-  await c.env.KV.put(jobDataKey as string, value, {
-    expiration: now + MAX_JOB_TTL,
-  });
-  return jobDataKey as string;
-}
-
 export interface JobOutput {
-  inferenceResult: object | null;
-  errorResult: object | null;
+  inferenceResult?: any | null;
+  errorResult?: any | null;
 }
 
 export interface JobResult {
   jobId: number;
   status: string;
-  jobOutput: JobOutput | null;
+  jobOutputs: JobOutput[] | null;
 }
 
-export async function getJobOutputs(
+export interface JobResultDB {
+  value: JobOutput[];
+  finished: boolean;
+  updatedAt: number;
+}
+
+export async function storeJobOutputs(
+  c: GatewayServiceContext,
+  jobOutputKey: string,
+  jobOutputs: JobOutput[],
+  finished: boolean,
+): Promise<JobOutput[]> {
+  const output = await c.env.KV.get(jobOutputKey);
+  let value: JobResultDB = {
+    value: [],
+    finished: false,
+    updatedAt: 0,
+  };
+  if (output) {
+    value = JSON.parse(output as string);
+  }
+  const now = Math.floor(Date.now() / 1000);
+  value.value.push(...jobOutputs);
+  value.updatedAt = now;
+  value.finished = finished;
+  await c.env.KV.put(jobOutputKey as string, JSON.stringify(value), {
+    expiration: now + MAX_JOB_TTL,
+  });
+  return value.value;
+}
+
+export async function getJobOutputsMap(
   c: GatewayServiceContext,
   outputKeys: string[],
-): Promise<Record<string, JobOutput>> {
+): Promise<Record<string, JobOutput[]>> {
   const pairs = await Promise.all(
     outputKeys.map(async outputKey => {
       const value = await c.env.KV.get(outputKey);
       if (!value) {
-        return { outputKey, value: null };
+        return { outputKey, value: [] };
       }
-      return { outputKey, value: JSON.parse(value) };
+      const parsed = JSON.parse(value) as {
+        value: JobOutput[];
+        updatedAt: number;
+      };
+      if (parsed.updatedAt > 0) {
+        return { outputKey, value: parsed.value };
+      }
+      return { outputKey, value: [] };
     }),
   );
   return pairs.reduce((acc, pair) => {
-    acc[pair.outputKey] = pair.value as JobOutput;
+    acc[pair.outputKey] = pair.value as JobOutput[];
     return acc;
-  }, {} as Record<string, JobOutput>);
+  }, {} as Record<string, JobOutput[]>);
+}
+
+export async function getJobResult(
+  c: GatewayServiceContext,
+  outputKey: string,
+): Promise<JobResultDB | null> {
+  const value = await c.env.KV.get(outputKey);
+  if (!value) {
+    return null;
+  }
+  return JSON.parse(value) as JobResultDB;
 }

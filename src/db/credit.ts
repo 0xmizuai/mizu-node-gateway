@@ -15,12 +15,13 @@ export async function settleJobRewards(
   env: Env,
   jobInput: InferenceJobInput,
   config: PoolConfig,
-  usage: TokenUsage,
+  usages: TokenUsage[],
   worker: string,
 ) {
-  const { prompt_tokens, completion_tokens } = usage;
-  const inputCost = prompt_tokens * config.prices.input;
-  const outputCost = completion_tokens * config.prices.output;
+  const inputTokens = usages.reduce((acc, usage) => acc + usage.prompt_tokens, 0);
+  const outputTokens = usages.reduce((acc, usage) => acc + usage.completion_tokens, 0);
+  const inputCost = inputTokens * config.prices.input;
+  const outputCost = outputTokens * config.prices.output;
   const totalCost = Math.ceil((inputCost + outputCost) / 1000000);
 
   const now = Math.floor(Date.now() / 1000);

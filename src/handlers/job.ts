@@ -2,7 +2,14 @@ import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { getPool } from '../db/pool';
 import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
-import { getJobInput, storeJobOutput, insertJobs, getJobOutputs, JobResult } from '../kv';
+import {
+  getJobInput,
+  storeJobOutputs,
+  insertJobs,
+  getJobResult,
+  JobResult,
+  getJobOutputsMap,
+} from '../kv';
 import {
   GatewayServiceContext,
   GatewayServiceError,
@@ -17,6 +24,10 @@ import {
 import { estimateCost } from '../utils';
 
 const DEFAULT_TIMEOUT_MS = 30000;
+
+function getJobOutputKey(jobId: number) {
+  return `${jobId}_output`;
+}
 
 export class TakeJob extends OpenAPIRoute {
   schema = {
@@ -97,12 +108,7 @@ export class FinishJob extends OpenAPIRoute {
               jobId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
               jobCtxKey: z.string(),
-              jobOutput: z.object({
-                rewardResult: z.any().optional(),
-                powResult: z.any().optional(),
-                inferenceResult: z.any().optional(),
-                errorResult: z.any().optional(),
-              }),
+              jobOutputs: z.array(jobOutputSchema),
             }),
           },
         },
@@ -125,9 +131,8 @@ export class FinishJob extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const jobOutputKey = await storeJobOutput(c, data.body.jobOutput);
-
     const worker = c.get('userId');
+    const jobOutputKey = getJobOutputKey(data.body.jobId);
     const nodeRequestData: NodeFinishJobRequest = {
       user: worker,
       jobId: data.body.jobId,
@@ -139,11 +144,6 @@ export class FinishJob extends OpenAPIRoute {
     };
 
     const jobInput = await getJobInput(c, data.body.jobCtxKey);
-    if (data.body.jobType !== 4) {
-      nodeRequestData.jobCtx = jobInput.context;
-      nodeRequestData.jobOutput = data.body.jobOutput;
-    }
-
     const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/finish_job`, {
       method: 'POST',
       headers: {
@@ -155,11 +155,13 @@ export class FinishJob extends OpenAPIRoute {
     if (resp.status !== 200) {
       throw new GatewayServiceError(500, 'Failed to finish job');
     }
+
+    const outputs = await storeJobOutputs(c, jobOutputKey, data.body.jobOutputs, true);
     const result: NodeFinishJobResponse = await resp.json();
     if (data.body.jobType === 4) {
       const pool = await getPool(c.env, result.data.referenceId);
-      const inferenceOutput = data.body.jobOutput.inferenceResult;
-      await settleJobRewards(c.env, jobInput, pool, inferenceOutput.usage, worker);
+      const usages = outputs.map(output => output.inferenceResult?.usage || 0);
+      await settleJobRewards(c.env, jobInput, pool, usages, worker);
     }
     return c.json(result);
   }
@@ -293,13 +295,18 @@ async function handleGetJobResults(c: GatewayServiceContext, jobIds: string): Pr
   const outputKeys = result.data.results
     .map(result => result.jobOutputKey)
     .filter(key => key != null);
-  const jobOutputs = await getJobOutputs(c, outputKeys);
+  const jobOutputsMap = await getJobOutputsMap(c, outputKeys);
   return result.data.results.map(result => ({
     jobId: result.jobId,
     status: result.status,
-    jobOutput: jobOutputs[result.jobOutputKey] || null,
+    jobOutputs: jobOutputsMap[result.jobOutputKey] || null,
   }));
 }
+
+const jobOutputSchema = z.object({
+  inferenceResult: z.any().optional(),
+  errorResult: z.any().optional(),
+});
 
 export class GetJobResults extends OpenAPIRoute {
   schema = {
@@ -316,14 +323,7 @@ export class GetJobResults extends OpenAPIRoute {
                 z.object({
                   jobId: z.number().int(),
                   status: z.string(),
-                  jobOutput: z
-                    .object({
-                      rewardResult: z.any().optional(),
-                      powResult: z.any().optional(),
-                      inferenceResult: z.any().optional(),
-                      errorResult: z.any().optional(),
-                    })
-                    .optional(),
+                  jobOutputs: z.array(jobOutputSchema),
                 }),
               ),
             }),
@@ -383,31 +383,78 @@ export class ChatCompletions extends OpenAPIRoute {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
 
-    const job_id = response.data.jobIds[0];
-    const startTime = Date.now();
-    while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
-      try {
-        const job_results = await handleGetJobResults(c, job_id.toString());
-        if (job_results.length !== 1) {
-          throw new GatewayServiceError(500, 'Failed to get job results');
-        }
-        const job_result = job_results[0];
-        if (job_result.status == 'finished' || job_result.status == 'error') {
-          const result = job_result.jobOutput?.inferenceResult;
-          if (!result) {
-            throw new GatewayServiceError(500, 'Job output not found');
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const job_id = response.data.jobIds[0];
+          const startTime = Date.now();
+          let processed = 0;
+
+          while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
+            try {
+              const jobOutputKey = `${job_id}_output`;
+              const job_result = await getJobResult(c, jobOutputKey);
+              if (job_result && job_result.value.length > processed) {
+                for (let i = processed; i < job_result.value.length; i++) {
+                  const result = job_result.value[i].inferenceResult;
+                  controller.enqueue(encoder.encode(result));
+                }
+                processed = job_result.value.length;
+                if (job_result.finished) {
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                  controller.close();
+                  return;
+                }
+              }
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (e) {
+              console.log('error: ', e);
+              if (e instanceof GatewayServiceError && e.code === 408) {
+                throw e;
+              }
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
           }
-          return c.json(result);
-        }
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (e) {
-        console.log('error: ', e);
-        if (e instanceof GatewayServiceError && e.code === 408) {
-          throw e;
-        }
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-    throw new GatewayServiceError(408, 'Request timed out');
+          throw new GatewayServiceError(408, 'Request timed out');
+        },
+      }),
+    );
+  }
+}
+
+export class SubmitJobOutput extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              jobId: z.number().int(),
+              jobOutputs: z.array(jobOutputSchema),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: 'Job result submitted successfully',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string().default('ok'),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const jobOutputKey = getJobOutputKey(data.body.jobId);
+    await storeJobOutputs(c, jobOutputKey, data.body.jobOutputs, false);
+    return c.json({ message: 'ok' });
   }
 }

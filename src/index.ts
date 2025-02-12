@@ -12,6 +12,7 @@ import {
   PublishInferenceJobs,
   GetJobResults,
   ChatCompletions,
+  SubmitJobOutput,
 } from './handlers/job';
 import {
   GetPoolStats,
@@ -48,6 +49,7 @@ app.use(
 
 // Apply jwtAuthMiddleware only to specific routes
 app.use('/take_job', jwtOrApiKeyAuthMiddleware);
+app.use('/submit_job_result', jwtOrApiKeyAuthMiddleware);
 app.use('/finish_job', jwtOrApiKeyAuthMiddleware);
 app.use('/publish_inference_jobs', jwtOrApiKeyAuthMiddleware);
 app.use('/job_results', jwtOrApiKeyAuthMiddleware);
@@ -97,6 +99,7 @@ openapi.registry.registerComponent('securitySchemes', 'BearerAuth', {
 
 // Define routes
 openapi.get('/take_job', TakeJob);
+openapi.post('/submit_job_result', SubmitJobOutput);
 openapi.post('/finish_job', FinishJob);
 openapi.post('/publish_inference_jobs', PublishInferenceJobs);
 openapi.get('/job_results', GetJobResults);
