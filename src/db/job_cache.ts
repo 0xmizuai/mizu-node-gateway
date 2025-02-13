@@ -315,19 +315,14 @@ export async function cleanUpPool(env: Env, poolId: number) {
 
   // Delete finished jobs
   const deleteFinishedJobsSql = `
-      WITH deleted AS (
-        DELETE FROM ${JOB_DATA_TABLE_NAME} 
-        WHERE expiredAt < ? AND status IN (?, ?)
-        RETURNING 1
-      )
-      SELECT count(*) as count FROM deleted
+      DELETE FROM ${JOB_DATA_TABLE_NAME} 
+      WHERE expiredAt < ? AND status IN (?, ?)
     `;
-  const results1: { count: number }[] = await query(env, pool.databaseId, deleteFinishedJobsSql, [
+  await query(env, pool.databaseId, deleteFinishedJobsSql, [
     now,
     JobStatus.FAILED,
     JobStatus.COMPLETED,
   ]);
-  console.log('Deleted jobs count:', results1[0].count);
 
   // Reset expired jobs
   const resetExpiredJobsSql = `
