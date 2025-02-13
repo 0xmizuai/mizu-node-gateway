@@ -34,8 +34,8 @@ export type GatewayServiceContext = Context<{
     KV: KVNamespace;
     DB: D1Database;
     JWT_PUB_KEY: string;
-    NODE_SERVICE_URL: string;
-    INTERNAL_SERVICE_API_KEY: string;
+    UPSTASH_REDIS_REST_URL: string;
+    UPSTASH_REDIS_REST_TOKEN: string;
     CF_ACCOUNT_ID: string;
     CF_KV_NAMESPACE_ID: string;
     CF_API_TOKEN: string;
@@ -50,66 +50,6 @@ export interface WorkerJob {
   jobType: number;
   referenceId: number;
   jobCtx: InferenceContext;
-}
-
-export interface NodeTakeJobResponse {
-  data: {
-    job: WorkerJob;
-  };
-}
-
-export interface NodeFinishJobRequest {
-  user: string;
-  jobId: number;
-  jobType: number;
-}
-
-export interface NodeFinishJobResponse {
-  data: {
-    referenceId: number;
-    publisher: string;
-    status: number;
-  };
-}
-
-export interface NodePublishJobsRequest {
-  user: string;
-  jobType: number;
-  referenceId: number;
-}
-
-export interface NodePublishJobsResponse {
-  data: {
-    jobIds: number[];
-  };
-}
-
-export interface NodeGetJobResultsResponse {
-  data: {
-    results: {
-      jobId: number;
-      jobOutputKey: string;
-      status: string;
-    }[];
-  };
-}
-
-export interface NodeGetQueueStatsResponse {
-  message: string;
-  data: {
-    stats: {
-      [referenceId: number]: {
-        queueSize: number;
-      };
-    };
-  };
-}
-
-export interface UpdatePublisherStatusResponse {
-  message: string;
-  data: {
-    success: boolean;
-  };
 }
 
 export interface InferenceMessages {

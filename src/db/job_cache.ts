@@ -130,10 +130,11 @@ export async function takeJob(
   worker: string,
 ): Promise<WorkerJob | null> {
   const redis = Redis.fromEnv(env);
-  const jobId = await redis.lpop(jobQueuekey(pool.id));
-  if (!jobId) {
+  const rawId = await redis.lpop(jobQueuekey(pool.id));
+  if (!rawId) {
     return null;
   }
+  const jobId = parseInt(rawId as string);
   const now = Math.floor(Date.now() / 1000);
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
@@ -150,7 +151,7 @@ export async function takeJob(
     return null;
   }
   return {
-    jobId: parseInt(jobId),
+    jobId: jobId,
     jobType: JobType.INFERENCE,
     referenceId: pool.id,
     jobCtx: results[0].input,
@@ -266,4 +267,35 @@ export async function getJobResult(
     outputs: result.outputs,
     status: result.status,
   };
+}
+
+export async function queryPoolStats(env: Env, pool: PoolConfig): Promise<Record<number, number>> {
+  const sql = `
+      SELECT status, COUNT(*) FROM ${JOB_DATA_TABLE_NAME} GROUP BY status
+    `;
+  const results: { status: number; count: number }[] = await query(env, pool.databaseId, sql, []);
+  return results.reduce((acc, result) => {
+    acc[result.status] = result.count;
+    return acc;
+  }, {} as Record<number, number>);
+}
+
+export async function getPoolStats(
+  env: Env,
+  pools: PoolConfig[],
+): Promise<Record<number, Record<number, number>>> {
+  const stats = await Promise.all(
+    pools.map(async pool => {
+      return {
+        [pool.id]: await queryPoolStats(env, pool),
+      };
+    }),
+  );
+
+  return stats.reduce((acc, stat) => {
+    Object.keys(stat).forEach(poolId => {
+      acc[parseInt(poolId)] = stat[parseInt(poolId)];
+    });
+    return acc;
+  }, {} as Record<number, Record<number, number>>);
 }

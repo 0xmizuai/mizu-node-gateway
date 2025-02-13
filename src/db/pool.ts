@@ -22,9 +22,17 @@ function toPoolConfig(row: any): PoolConfig {
   } as PoolConfig;
 }
 
-export async function getPools(env: Env): Promise<PoolConfig[]> {
-  const stmt = env.DB.prepare('SELECT * FROM pools');
-  const result = await stmt.all();
+export async function getPools(env: Env, limit = 1000): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare('SELECT * FROM pools LIMIT ?');
+  const result = await stmt.bind(limit).all();
+  return result.results.map(toPoolConfig);
+}
+
+export async function getPoolsByIds(env: Env, poolIds: number[]): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare(
+    'SELECT * FROM pools WHERE id IN (' + poolIds.map(() => '?').join(',') + ')',
+  );
+  const result = await stmt.bind(...poolIds).all();
   return result.results.map(toPoolConfig);
 }
 

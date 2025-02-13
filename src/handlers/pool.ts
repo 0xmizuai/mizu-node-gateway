@@ -1,13 +1,9 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-import { getPools, createPool, getPool, updatePool, getUserPools } from '../db/pool';
-import {
-  GatewayServiceContext,
-  GatewayServiceError,
-  NodeGetQueueStatsResponse,
-  PoolStatus,
-} from '../types';
+import { getPools, createPool, getPool, updatePool, getUserPools, getPoolsByIds } from '../db/pool';
+import { GatewayServiceContext, GatewayServiceError, PoolStatus } from '../types';
 import { settlePoolRewards } from '../db/credit';
+import { getPoolStats } from '../db/job_cache';
 
 const poolInputSchema = z.object({
   name: z.string(),
@@ -50,7 +46,8 @@ export class GetPoolStats extends OpenAPIRoute {
                 stats: z.record(
                   z.number(),
                   z.object({
-                    queueSize: z.number().int(),
+                    status: z.number().int(),
+                    count: z.number().int(),
                   }),
                 ),
               }),
@@ -63,28 +60,20 @@ export class GetPoolStats extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const queryParams = new URLSearchParams({
-      jobType: '4',
-      referenceIds: data.query.pools,
-    });
-    const resp = await fetch(`${c.env.NODE_SERVICE_URL}/v3/queue_stats?${queryParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${c.env.INTERNAL_SERVICE_API_KEY}`,
-      },
-    });
-    if (resp.status !== 200) {
-      throw new GatewayServiceError(500, await resp.text());
-    }
-    const result: NodeGetQueueStatsResponse = await resp.json();
-    return c.json(result);
+    const poolIds = data.query.pools.split(',').map(id => parseInt(id));
+    const pools = await getPoolsByIds(c.env, poolIds);
+    const stats = await getPoolStats(c.env, pools);
+    return c.json({ data: { stats } });
   }
 }
 
 export class GetPools extends OpenAPIRoute {
   schema = {
-    security: [],
+    request: {
+      query: z.object({
+        limit: z.number().int().min(1).max(1000).default(1000).optional(),
+      }),
+    },
     responses: {
       '200': {
         description: '',
@@ -100,7 +89,8 @@ export class GetPools extends OpenAPIRoute {
   };
 
   async handle(c: GatewayServiceContext) {
-    const pools = await getPools(c.env);
+    const data = await this.getValidatedData<typeof this.schema>();
+    const pools = await getPools(c.env, data.query.limit);
     return c.json({
       data: pools,
     });
