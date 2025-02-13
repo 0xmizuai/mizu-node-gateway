@@ -9,7 +9,6 @@ import {
   takeJob,
   submitJobOutputs,
   getJob,
-  deleteJob,
 } from '../db/job_cache';
 import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
@@ -69,8 +68,14 @@ export class FinishJob extends OpenAPIRoute {
               jobId: z.number().int(),
               poolId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
-              jobOutputs: z.array(jobOutputSchema),
-              finished: z.boolean().default(true),
+              jobOutputs: z.array(z.string()),
+              usage: z
+                .object({
+                  prompt_tokens: z.number().int(),
+                  completion_tokens: z.number().int(),
+                  total_tokens: z.number().int(),
+                })
+                .optional(),
             }),
           },
         },
@@ -107,28 +112,18 @@ export class FinishJob extends OpenAPIRoute {
     }
 
     let status: number = JobStatus.ASSIGNED;
-    if (data.body.finished) {
-      if (data.body.jobOutputs.some(output => output.errorResult)) {
-        status = JobStatus.FAILED;
-      } else {
-        status = JobStatus.COMPLETED;
-      }
+    if (data.body.usage) {
+      status = JobStatus.COMPLETED;
     }
-    const { publisher, estimatedCost, outputs } = await submitJobOutputs(
+    const { publisher, estimatedCost } = await submitJobOutputs(
       c.env,
       pool,
       data.body.jobId,
       status,
       data.body.jobOutputs,
     );
-    if (data.body.finished) {
-      const usages = outputs
-        .map(output => output.inferenceResult?.usage || null)
-        .filter(usage => usage !== null);
-      if (usages.length == 0) {
-        throw new GatewayServiceError(400, 'No usage data');
-      }
-      await settleJobRewards(c.env, publisher, estimatedCost, pool, usages, worker);
+    if (data.body.usage) {
+      await settleJobRewards(c.env, publisher, estimatedCost, pool, data.body.usage, worker);
     }
     return c.json({
       message: 'ok',
@@ -227,11 +222,6 @@ const getJobResultRequestSchema = z.object({
   jobIds: z.string(),
 });
 
-const jobOutputSchema = z.object({
-  inferenceResult: z.any().optional(),
-  errorResult: z.any().optional(),
-});
-
 export class GetJobResults extends OpenAPIRoute {
   schema = {
     request: {
@@ -247,7 +237,7 @@ export class GetJobResults extends OpenAPIRoute {
                 z.object({
                   jobId: z.number().int(),
                   status: z.string(),
-                  jobOutputs: z.array(jobOutputSchema),
+                  jobOutputs: z.array(z.string()),
                 }),
               ),
             }),
@@ -291,7 +281,6 @@ export class ChatCompletions extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    console.log('Stream mode:', data.body.stream);
     // expected format pool/:id/model
     const [_, poolId, model] = data.body.model.split('/', 3);
     const pool = await getPool(c.env, parseInt(poolId));
@@ -311,12 +300,9 @@ export class ChatCompletions extends OpenAPIRoute {
     const jobId = jobIds[0];
     const startTime = Date.now();
     if (data.body.stream) {
-      console.log('stream mode');
       return new Response(
         new ReadableStream({
           async start(controller) {
-            console.log('start');
-
             const encoder = new TextEncoder();
             let processed = 0;
 
@@ -324,16 +310,11 @@ export class ChatCompletions extends OpenAPIRoute {
               try {
                 const { outputs, status } = await getJobResult(c.env, pool, jobId, processed);
                 for (const output of outputs) {
-                  console.log('sending back results');
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify(output.inferenceResult)}\n\n`),
-                  );
+                  controller.enqueue(encoder.encode(output));
                 }
                 processed += outputs.length;
                 if (status === JobStatus.COMPLETED || status === JobStatus.FAILED) {
-                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                   controller.close();
-                  // await deleteJob(c.env, pool, jobId);
                   return;
                 }
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -345,7 +326,6 @@ export class ChatCompletions extends OpenAPIRoute {
                 await new Promise(resolve => setTimeout(resolve, 500));
               }
             }
-            // await deleteJob(c.env, pool, jobId);
             throw new GatewayServiceError(408, 'Request timed out');
           },
         }),
@@ -362,7 +342,7 @@ export class ChatCompletions extends OpenAPIRoute {
         try {
           const { outputs } = await getJobResult(c.env, pool, jobId);
           if (outputs.length > 0) {
-            const result = outputs[0].inferenceResult;
+            const result = JSON.parse(outputs[0]);
             return c.json(result);
           }
           await new Promise(resolve => setTimeout(resolve, 500));

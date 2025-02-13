@@ -16,13 +16,12 @@ export async function settleJobRewards(
   publisher: string,
   estimatedCost: number,
   config: PoolConfig,
-  usages: TokenUsage[],
+  usages: TokenUsage,
   worker: string,
 ) {
-  const inputTokens = usages.reduce((acc, usage) => acc + usage.prompt_tokens, 0);
-  const outputTokens = usages.reduce((acc, usage) => acc + usage.completion_tokens, 0);
-  const inputCost = inputTokens * config.prices.input;
-  const outputCost = outputTokens * config.prices.output;
+  const { prompt_tokens, completion_tokens } = usages;
+  const inputCost = prompt_tokens * config.prices.input;
+  const outputCost = completion_tokens * config.prices.output;
   const totalCost = Math.ceil((inputCost + outputCost) / 1000000);
 
   const now = Math.floor(Date.now() / 1000);
@@ -50,10 +49,18 @@ export async function settleJobRewards(
       'updatedAt = ? WHERE id = ?',
   );
   await env.DB.batch([
-    spendingQuery.bind(inputTokens, outputTokens, totalCost, now, publisher, config.id),
+    spendingQuery.bind(prompt_tokens, completion_tokens, totalCost, now, publisher, config.id),
     publisherQuery.bind(estimatedCost, totalCost, now, publisher),
-    poolRewardUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, worker, config.id, nday),
-    poolUpdateQuery.bind(inputTokens, outputTokens, totalCost, now, config.id),
+    poolRewardUpdateQuery.bind(
+      prompt_tokens,
+      completion_tokens,
+      totalCost,
+      now,
+      worker,
+      config.id,
+      nday,
+    ),
+    poolUpdateQuery.bind(prompt_tokens, completion_tokens, totalCost, now, config.id),
   ]);
 }
 

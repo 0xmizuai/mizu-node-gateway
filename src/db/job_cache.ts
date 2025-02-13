@@ -198,24 +198,24 @@ export async function submitJobOutputs(
   pool: PoolConfig,
   jobId: number,
   status: number,
-  jobOutputs: JobOutput[],
-): Promise<{ publisher: string; estimatedCost: number; outputs: JobOutput[] }> {
+  jobOutputs: string[],
+): Promise<{ publisher: string; estimatedCost: number }> {
   const now = Math.floor(Date.now() / 1000);
 
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
       SET outputs = (
-        SELECT json_group_array(json(value))
+        SELECT json_group_array(value)
         FROM (
           SELECT value FROM json_each(COALESCE(outputs, '[]'))
           UNION ALL
-          SELECT json(value) as value FROM json_each(?)
+          SELECT value FROM json_each(?)
         )
       ),
       status = ?,
       updatedAt = ?
       WHERE id = ?
-      RETURNING publisher, estimatedCost, outputs
+      RETURNING publisher, estimatedCost
     `;
 
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
@@ -228,7 +228,6 @@ export async function submitJobOutputs(
   return {
     publisher: row.publisher as string,
     estimatedCost: row.estimatedCost as number,
-    outputs: JSON.parse(row.outputs) as JobOutput[],
   };
 }
 
@@ -236,7 +235,7 @@ export async function getJobResultsMap(
   env: Env,
   jobIds: number[],
   pool: PoolConfig,
-): Promise<Record<number, JobResult>> {
+): Promise<Record<number, string[]>> {
   const sql = `
       SELECT id, status, COALESCE(json(outputs), json_array()) as outputs 
       FROM ${JOB_DATA_TABLE_NAME} 
@@ -245,12 +244,9 @@ export async function getJobResultsMap(
   const results: QueryResult[] = await query(env, pool.databaseId, sql, jobIds);
   const rows = results[0].results;
   return rows.reduce((acc, row) => {
-    acc[row.id] = {
-      jobOutputs: JSON.parse(row.outputs) as JobOutput[],
-      status: row.status,
-    };
+    acc[row.id] = JSON.parse(row.outputs) as string[];
     return acc;
-  }, {} as Record<number, JobResult>);
+  }, {} as Record<number, string[]>);
 }
 
 export async function getJobResult(
@@ -276,7 +272,7 @@ export async function getJobResult(
   }
   const row = results[0].results[0];
   return {
-    outputs: JSON.parse(row.outputs || '[]') as JobOutput[],
+    outputs: JSON.parse(row.outputs || '[]') as string[],
     status: row.status,
   };
 }

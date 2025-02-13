@@ -128,17 +128,12 @@ export interface ApiKey {
   updatedAt?: number;
 }
 
-export interface JobOutput {
-  inferenceResult?: any | null;
-  errorResult?: any | null;
-}
-
 export interface JobResult {
   status: number;
-  jobOutputs: JobOutput[] | null;
+  jobOutputs: string[] | null;
 }
 
 export interface JobResultDB {
-  outputs: JobOutput[];
+  outputs: string[];
   status: number;
 }
