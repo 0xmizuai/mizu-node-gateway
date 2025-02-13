@@ -349,6 +349,13 @@ export class ChatCompletions extends OpenAPIRoute {
             throw new GatewayServiceError(408, 'Request timed out');
           },
         }),
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        },
       );
     } else {
       while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
