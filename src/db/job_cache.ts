@@ -20,20 +20,20 @@ const MAX_JOB_PROCESSING_TIME = 600; // 10 mins
 const JOB_DATA_TABLE_NAME = 'job_data';
 const CREATE_JOB_DATA_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   input JSONB NOT NULL DEFAULT '{}',
   outputs JSONB NOT NULL DEFAULT '[]',
   estimatedCost INTEGER NOT NULL,
   status INTEGER NOT NULL DEFAULT 0,
   publisher TEXT NOT NULL,
-  assigner TEXT NOT NULL,
+  assigner TEXT,
   assignedAt INTEGER NOT NULL DEFAULT 0,
   expiredAt INTEGER NOT NULL DEFAULT 0,
-  createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  updatedAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+  createdAt INTEGER NOT NULL DEFAULT (unixepoch()),
+  updatedAt INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
-CREATE INDEX idx_job_data_expiredAt ON job_data (expiredAt);
+CREATE INDEX IF NOT EXISTS idx_job_data_expiredAt ON ${JOB_DATA_TABLE_NAME} (expiredAt);
 `;
 
 function jobQueuekey(poolId: number) {

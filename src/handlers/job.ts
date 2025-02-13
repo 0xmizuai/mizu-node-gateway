@@ -154,14 +154,10 @@ type OpenAiInput = z.infer<typeof openAiInputSchema>;
 
 async function handleJobRequest(
   c: GatewayServiceContext,
-  poolId: number,
+  pool: PoolConfig,
   contexts: OpenAiInput[],
 ): Promise<number[]> {
   const user = c.get('userId');
-  const pool = await getPool(c.env, poolId);
-  if (!pool) {
-    throw new GatewayServiceError(404, 'Pool not found');
-  }
   const inputData = contexts.map(context => {
     return {
       context,
@@ -212,7 +208,11 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const jobIds = await handleJobRequest(c, data.body.poolId, data.body.contexts);
+    const pool = await getPool(c.env, data.body.poolId);
+    if (!pool) {
+      throw new GatewayServiceError(404, 'Pool not found');
+    }
+    const jobIds = await handleJobRequest(c, pool, data.body.contexts);
     return c.json({
       data: {
         jobIds: jobIds,
@@ -292,7 +292,11 @@ export class ChatCompletions extends OpenAPIRoute {
     const data = await this.getValidatedData<typeof this.schema>();
     // expected format pool/:id/model
     const [_, poolId, model] = data.body.model.split('/', 3);
-    const jobIds = await handleJobRequest(c, parseInt(poolId), [
+    const pool = await getPool(c.env, parseInt(poolId));
+    if (!pool) {
+      throw new GatewayServiceError(404, 'Pool not found');
+    }
+    const jobIds = await handleJobRequest(c, pool, [
       {
         ...data.body,
         model,
