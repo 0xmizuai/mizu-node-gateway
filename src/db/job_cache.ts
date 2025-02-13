@@ -206,9 +206,10 @@ export async function submitJobOutputs(
   const now = Math.floor(Date.now() / 1000);
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
-      SET outputs = json_array_extend(
-        COALESCE(outputs, json_array()),
-        json(?)
+      SET outputs = json_insert(
+        COALESCE(outputs, '[]'),
+        '$[' || json_array_length(COALESCE(outputs, '[]')) || ']',
+        json_each.value
       ),
       status = ?,
       updatedAt = ?
