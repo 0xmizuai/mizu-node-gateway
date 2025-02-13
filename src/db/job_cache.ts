@@ -45,9 +45,6 @@ interface QueryResult {
 
 async function query(env: Env, dbId: string, sql: string, params: any[]): Promise<QueryResult[]> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${dbId}/query`;
-  console.log('databaseId: ', dbId);
-  console.log('Generated SQL:', sql);
-  console.log('Params:', JSON.stringify(params));
   const result = await fetch(url, {
     method: 'POST',
     headers: {
@@ -64,7 +61,6 @@ async function query(env: Env, dbId: string, sql: string, params: any[]): Promis
     result: QueryResult[];
     success: boolean;
   } = await result.json();
-  console.log('Query result:', data);
   if (!data.success) {
     throw new GatewayServiceError(500, 'Failed to query');
   }
