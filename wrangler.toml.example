@@ -4,18 +4,12 @@ compatibility_date = "2023-12-18"
 
 [vars]
 JWT_PUB_KEY = "this is the internal service key"
-INTERNAL_SERVICE_API_KEY = "this is the internal service key"
-QSTASH_CURRENT_SIGNING_KEY = "this is the current signing key"
-QSTASH_NEXT_SIGNING_KEY = "this is the next signing key"
-QSTASH_TOKEN = "this is the qstash token"
-QSTASH_URL = "https://qstash.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "this is the upstash redis rest token"
-UPSTASH_REDIS_REST_URL = "this is the upstash redis rest url"
 CF_ACCOUNT_ID = "this is the cloudflare account id"
-CF_KV_NAMESPACE_ID = "this is the cloudflare kv namespace id"
-CF_API_TOKEN = "this is the cloudflare api token"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "mizu-token-usage"
 database_id = "local-db"
+
+[observability.logs]
+enabled = true

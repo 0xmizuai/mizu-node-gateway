@@ -38,7 +38,12 @@ function jobQueuekey(poolId: number) {
   return `pool_cache_${poolId}`;
 }
 
-async function query(env: Env, dbId: string, sql: string, params: any[]): Promise<any[]> {
+async function query(
+  env: Env,
+  dbId: string,
+  sql: string,
+  params: any[] | Record<string, any>,
+): Promise<any[]> {
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${dbId}/query`;
   const result = await fetch(url, {
     method: 'POST',
@@ -102,24 +107,36 @@ export async function insertJobs(
   }[],
 ): Promise<number[]> {
   const now = Math.floor(Date.now() / 1000);
-  const values = await Promise.all(
-    inputData.map(async input => {
-      return [publisher, input.estimatedCost, JSON.stringify(input.context), now + MAX_JOB_TTL];
-    }),
-  );
-  const fields = [
-    'publisher',
-    'estimatedCost',
-    'jobCtx', // JSONB
-    'expiredAt',
-  ];
+  const values = inputData.map(input => ({
+    publisher: publisher,
+    estimatedCost: input.estimatedCost,
+    input: JSON.stringify(input.context),
+    expiredAt: now + MAX_JOB_TTL,
+  }));
+
+  // Use named parameters instead of positional parameters
   const sql = `
-      INSERT INTO ${JOB_DATA_TABLE_NAME} (${fields.join(', ')}) VALUES ${values
-    .map(() => `(?, ?, ?, ?)`)
-    .join(',')}
-      RETURNING id
-    `;
-  const result: { id: number }[] = await query(env, pool.databaseId, sql, values.flat());
+    INSERT INTO ${JOB_DATA_TABLE_NAME} 
+    (publisher, estimatedCost, input, expiredAt)
+    VALUES ${values
+      .map((_, i) => `($publisher${i}, $estimatedCost${i}, $input${i}, $expiredAt${i})`)
+      .join(',')}
+    RETURNING id
+  `;
+
+  // Create params object with named parameters
+  const params = values.reduce(
+    (acc, val, i) => ({
+      ...acc,
+      [`$publisher${i}`]: val.publisher,
+      [`$estimatedCost${i}`]: val.estimatedCost,
+      [`$input${i}`]: val.input,
+      [`$expiredAt${i}`]: val.expiredAt,
+    }),
+    {},
+  );
+
+  const result: { id: number }[] = await query(env, pool.databaseId, sql, params);
   const jobIds = result.map(result => result.id);
   const redis = Redis.fromEnv(env);
   await redis.rpush(jobQueuekey(pool.id), ...jobIds);
@@ -312,31 +329,40 @@ export async function cleanUpPool(env: Env, poolId: number) {
 
   // Delete finished jobs
   const deleteFinishedJobsSql = `
-      DELETE FROM ${JOB_DATA_TABLE_NAME} WHERE expiredAt < ? AND status IN (?, ?)
-    `;
-  await query(env, pool.databaseId, deleteFinishedJobsSql, [
-    now,
-    JobStatus.FAILED,
-    JobStatus.COMPLETED,
-  ]);
+    DELETE FROM ${JOB_DATA_TABLE_NAME} 
+    WHERE expiredAt < $now 
+    AND status IN ($statusFailed, $statusCompleted)
+  `;
+  await query(env, pool.databaseId, deleteFinishedJobsSql, {
+    $now: now,
+    $statusFailed: JobStatus.FAILED,
+    $statusCompleted: JobStatus.COMPLETED,
+  });
 
   // Reset expired jobs
   const resetExpiredJobsSql = `
-        UPDATE ${JOB_DATA_TABLE_NAME}
-        SET status = ?, assigner = ?, assignedAt = ?, updatedAt = ?
-        WHERE status = ? AND assignedAt < ?
-        RETURNING id
-    `;
+    UPDATE ${JOB_DATA_TABLE_NAME}
+    SET status = $newStatus, 
+        assigner = $assigner, 
+        assignedAt = $assignedAt, 
+        updatedAt = $now
+    WHERE status = $currentStatus 
+    AND assignedAt < $expiredTime
+    RETURNING id
+  `;
   const redis = Redis.fromEnv(env);
-  const results: { id: number }[] = await query(env, pool.databaseId, resetExpiredJobsSql, [
-    JobStatus.PENDING,
-    null,
-    0,
-    now,
-    JobStatus.ASSIGNED,
-    now - MAX_JOB_PROCESSING_TIME,
-  ]);
-  await redis.lpush(jobQueuekey(pool.id), ...results.map(result => result.id.toString()));
+  const results: { id: number }[] = await query(env, pool.databaseId, resetExpiredJobsSql, {
+    $newStatus: JobStatus.PENDING,
+    $assigner: null,
+    $assignedAt: 0,
+    $now: now,
+    $currentStatus: JobStatus.ASSIGNED,
+    $expiredTime: now - MAX_JOB_PROCESSING_TIME,
+  });
+
+  if (results.length > 0) {
+    await redis.lpush(jobQueuekey(pool.id), ...results.map(result => result.id.toString()));
+  }
 
   // update pool cleanedAt
   await env.DB.prepare('UPDATE pools SET cleanedAt = ? WHERE id = ?').bind(now, poolId).run();
