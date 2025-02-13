@@ -155,7 +155,7 @@ export async function takeJob(
         assignedAt = ?,
         updatedAt = ?
     WHERE id = ?
-    RETURNING json(input) as input`;
+    RETURNING input`;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
     worker,
     JobStatus.ASSIGNED,
@@ -171,7 +171,7 @@ export async function takeJob(
     jobId: jobId,
     jobType: JobType.INFERENCE,
     referenceId: pool.id,
-    jobCtx: row.input,
+    jobCtx: JSON.parse(row.input),
   };
 }
 
@@ -213,7 +213,7 @@ export async function submitJobOutputs(
       status = ?,
       updatedAt = ?
       WHERE id = ?
-      RETURNING publisher, estimatedCost, json(outputs)
+      RETURNING publisher, estimatedCost, outputs
     `;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
     jobOutputs,
@@ -221,7 +221,12 @@ export async function submitJobOutputs(
     now,
     jobId,
   ]);
-  return results[0].results[0];
+  const row = results[0].results[0];
+  return {
+    publisher: row.publisher as string,
+    estimatedCost: row.estimatedCost as number,
+    outputs: JSON.parse(row.outputs) as JobOutput[],
+  };
 }
 
 export async function getJobResultsMap(
@@ -238,7 +243,7 @@ export async function getJobResultsMap(
   const rows = results[0].results;
   return rows.reduce((acc, row) => {
     acc[row.id] = {
-      jobOutputs: row.outputs,
+      jobOutputs: JSON.parse(row.outputs) as JobOutput[],
       status: row.status,
     };
     return acc;
@@ -270,7 +275,7 @@ export async function getJobResult(
   }
   const row = results[0].results[0];
   return {
-    outputs: row.outputs,
+    outputs: JSON.parse(row.outputs) as JobOutput[],
     status: row.status,
   };
 }
