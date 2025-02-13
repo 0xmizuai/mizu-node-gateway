@@ -108,7 +108,7 @@ openapi.get('/take_job', TakeJob);
 openapi.post('/finish_job', FinishJob);
 openapi.post('/publish_inference_jobs', PublishInferenceJobs);
 openapi.get('/job_results', GetJobResults);
-openapi.post('/pool/:id/chat/completions', ChatCompletions);
+openapi.post('/chat/completions', ChatCompletions);
 
 openapi.get('/pool_stats', GetPoolStats);
 openapi.post('/new_pool', CreatePool);

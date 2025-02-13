@@ -10,7 +10,7 @@ import {
   submitJobOutputs,
   getJob,
 } from '../db/job_cache';
-import { GatewayServiceContext, GatewayServiceError, JobStatus } from '../types';
+import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
 
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -135,7 +135,7 @@ export class FinishJob extends OpenAPIRoute {
   }
 }
 
-const ollamaInputSchema = z
+const openAiInputSchema = z
   .object({
     model: z.string(),
     messages: z.array(
@@ -150,27 +150,22 @@ const ollamaInputSchema = z
   })
   .passthrough();
 
-const jobRequestSchema = z.object({
-  pool: z.number().int(),
-  contexts: z.array(ollamaInputSchema),
-});
-
-type JobValidatedData = z.infer<typeof jobRequestSchema>;
+type OpenAiInput = z.infer<typeof openAiInputSchema>;
 
 async function handleJobRequest(
   c: GatewayServiceContext,
-  jobs: JobValidatedData,
+  poolId: number,
+  contexts: OpenAiInput[],
 ): Promise<number[]> {
-  const poolConfig = await getPool(c.env, jobs.pool);
-  if (!poolConfig) {
+  const user = c.get('userId');
+  const pool = await getPool(c.env, poolId);
+  if (!pool) {
     throw new GatewayServiceError(404, 'Pool not found');
   }
-
-  const user = c.get('userId');
-  const inputData = jobs.contexts.map(context => {
+  const inputData = contexts.map(context => {
     return {
       context,
-      estimatedCost: estimateCost(poolConfig, context),
+      estimatedCost: estimateCost(pool, context),
     };
   });
 
@@ -180,7 +175,7 @@ async function handleJobRequest(
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
 
-  const jobIds = await insertJobs(c.env, poolConfig, user, inputData);
+  const jobIds = await insertJobs(c.env, pool, user, inputData);
   await lockSpending(c.env, user, totalCost);
   return jobIds;
 }
@@ -192,7 +187,8 @@ export class PublishInferenceJobs extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              jobs: jobRequestSchema,
+              poolId: z.number().int(),
+              contexts: z.array(openAiInputSchema),
             }),
           },
         },
@@ -216,7 +212,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const jobIds = await handleJobRequest(c, data.body.jobs);
+    const jobIds = await handleJobRequest(c, data.body.poolId, data.body.contexts);
     return c.json({
       data: {
         jobIds: jobIds,
@@ -272,13 +268,10 @@ export class GetJobResults extends OpenAPIRoute {
 export class ChatCompletions extends OpenAPIRoute {
   schema = {
     request: {
-      params: z.object({
-        id: z.number().int(),
-      }),
       body: {
         content: {
           'application/json': {
-            schema: ollamaInputSchema,
+            schema: openAiInputSchema,
           },
         },
       },
@@ -297,17 +290,14 @@ export class ChatCompletions extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const poolId = data.params.id;
-
-    const pool = await getPool(c.env, poolId);
-    if (!pool) {
-      throw new GatewayServiceError(404, 'Pool not found');
-    }
-    const new_data: JobValidatedData = {
-      pool: poolId,
-      contexts: [data.body],
-    };
-    const jobIds = await handleJobRequest(c, new_data);
+    // expected format pool/:id/model
+    const [_, poolId, model] = data.body.model.split('/', 3);
+    const jobIds = await handleJobRequest(c, parseInt(poolId), [
+      {
+        ...data.body,
+        model,
+      },
+    ]);
     if (jobIds.length !== 1) {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }
