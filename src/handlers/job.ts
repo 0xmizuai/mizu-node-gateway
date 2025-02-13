@@ -20,7 +20,7 @@ export class TakeJob extends OpenAPIRoute {
     request: {
       query: z.object({
         jobType: z.number().int().min(0).max(4),
-        referenceId: z.number().int(),
+        poolId: z.number().int(),
       }),
     },
     responses: {
@@ -49,7 +49,7 @@ export class TakeJob extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const user = c.get('userId');
-    const pool = await getPool(c.env, data.query.referenceId);
+    const pool = await getPool(c.env, data.query.poolId);
     const job = await takeJob(c.env, pool, user);
     return c.json({
       message: 'ok',
@@ -66,7 +66,7 @@ export class FinishJob extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               jobId: z.number().int(),
-              referenceId: z.number().int(),
+              poolId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
               jobOutputs: z.array(jobOutputSchema),
               finished: z.boolean().default(true),
@@ -93,7 +93,7 @@ export class FinishJob extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const worker = c.get('userId');
-    const pool = await getPool(c.env, data.body.referenceId);
+    const pool = await getPool(c.env, data.body.poolId);
     const job = await getJob(c.env, pool, data.body.jobId);
     if (!job) {
       throw new GatewayServiceError(404, 'Job not found');
@@ -226,7 +226,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
 }
 
 const getJobResultRequestSchema = z.object({
-  referenceId: z.number().int(),
+  poolId: z.number().int(),
   jobIds: z.string(),
 });
 
@@ -262,7 +262,7 @@ export class GetJobResults extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const pool = await getPool(c.env, data.query.referenceId);
+    const pool = await getPool(c.env, data.query.poolId);
     const jobIds = data.query.jobIds.split(',').map(id => parseInt(id));
     const results = await getJobResultsMap(c.env, jobIds, pool);
     return c.json({ results });
