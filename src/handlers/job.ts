@@ -291,6 +291,7 @@ export class ChatCompletions extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
+    console.log('Stream mode:', data.body.stream);
     // expected format pool/:id/model
     const [_, poolId, model] = data.body.model.split('/', 3);
     const pool = await getPool(c.env, parseInt(poolId));
@@ -310,6 +311,7 @@ export class ChatCompletions extends OpenAPIRoute {
     const jobId = jobIds[0];
     const startTime = Date.now();
     if (data.body.stream) {
+      console.log('stream mode');
       return new Response(
         new ReadableStream({
           async start(controller) {
@@ -320,11 +322,9 @@ export class ChatCompletions extends OpenAPIRoute {
 
             while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
               try {
-                console.log('getJobResult');
                 const { outputs, status } = await getJobResult(c.env, pool, jobId, processed);
-                console.log('outputs: ', outputs);
                 for (const output of outputs) {
-                  console.log('output: ', output.inferenceResult);
+                  console.log('sending back results');
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify(output.inferenceResult)}\n\n`),
                   );
