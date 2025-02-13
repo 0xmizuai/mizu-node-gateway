@@ -201,11 +201,17 @@ export async function submitJobOutputs(
   jobOutputs: JobOutput[],
 ): Promise<{ publisher: string; estimatedCost: number; outputs: JobOutput[] }> {
   const now = Math.floor(Date.now() / 1000);
+  // Create a patch array with one 'add' operation per item in jobOutputs
+  const patches = jobOutputs.map((_, index) => ({
+    op: 'add',
+    path: '/-',
+    value: jobOutputs[index],
+  }));
+
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
-      SET outputs = json_insert(
+      SET outputs = json_patch(
         COALESCE(outputs, '[]'),
-        '$[' || json_array_length(COALESCE(outputs, '[]')) || ']',
         json(?)
       ),
       status = ?,
@@ -214,7 +220,7 @@ export async function submitJobOutputs(
       RETURNING publisher, estimatedCost, outputs
     `;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
-    JSON.stringify(jobOutputs),
+    JSON.stringify(patches),
     status,
     now,
     jobId,
