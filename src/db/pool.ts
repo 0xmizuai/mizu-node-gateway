@@ -43,6 +43,7 @@ function toPoolConfig(row: any): PoolConfig {
     updatedAt: Number(row.updatedAt),
     cleanedAt: Number(row.cleanedAt),
     scheduleId: row.scheduleId as string,
+    databaseId: row.databaseId as string,
   } as PoolConfig;
 }
 
