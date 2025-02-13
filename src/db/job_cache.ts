@@ -119,7 +119,7 @@ export async function insertJobs(
   const fields = [
     'publisher',
     'estimatedCost',
-    'jobCtx', // JSONB
+    'input', // JSONB
     'expiredAt',
   ];
   const sql = `
