@@ -209,7 +209,7 @@ export async function submitJobOutputs(
       SET outputs = json_insert(
         COALESCE(outputs, '[]'),
         '$[' || json_array_length(COALESCE(outputs, '[]')) || ']',
-        json_each.value
+        json(?)
       ),
       status = ?,
       updatedAt = ?
