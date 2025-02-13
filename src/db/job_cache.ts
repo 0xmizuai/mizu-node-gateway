@@ -122,26 +122,25 @@ export async function insertJobs(
   return result[0].results.map(row => row.id);
 }
 
-export async function getJobQueue(
+export async function takeOneJobFromQueue(
   env: Env,
   pool: PoolConfig,
   maxRetries = 100,
 ): Promise<number | null> {
-  if (maxRetries <= 0) {
-    return null;
-  }
+  for (let i = 0; i < maxRetries; i++) {
+    const redis = Redis.fromEnv(env);
+    const row = await redis.lpop(jobQueuekey(pool.id));
+    if (!row) {
+      return null;
+    }
 
-  const redis = Redis.fromEnv(env);
-  const row = await redis.lpop(jobQueuekey(pool.id));
-  if (!row) {
-    return null;
+    const { id, expiredAt } = JSON.parse(row as string);
+    if (expiredAt < Math.floor(Date.now() / 1000)) {
+      continue;
+    }
+    return id;
   }
-
-  const { id, expiredAt } = JSON.parse(row as string);
-  if (expiredAt < Math.floor(Date.now() / 1000)) {
-    return await getJobQueue(env, pool, maxRetries - 1);
-  }
-  return id;
+  return null;
 }
 
 export async function takeJob(
@@ -149,7 +148,7 @@ export async function takeJob(
   pool: PoolConfig,
   worker: string,
 ): Promise<WorkerJob | null> {
-  const jobId = await getJobQueue(env, pool);
+  const jobId = await takeOneJobFromQueue(env, pool);
   if (jobId === null) {
     return null;
   }
