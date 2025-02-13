@@ -149,10 +149,13 @@ export async function takeJob(
   const jobId = parseInt(rawId as string);
   const now = Math.floor(Date.now() / 1000);
   const sql = `
-      UPDATE ${JOB_DATA_TABLE_NAME} 
-      SET assigner = ?, status = ?, assignedAt = ?, updatedAt = ?
-      WHERE id = ?
-      RETURNING json(input)`;
+    UPDATE ${JOB_DATA_TABLE_NAME}
+    SET assigner = ?,
+        status = ?,
+        assignedAt = ?,
+        updatedAt = ?
+    WHERE id = ?
+    RETURNING json(input) as input`;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
     worker,
     JobStatus.ASSIGNED,
