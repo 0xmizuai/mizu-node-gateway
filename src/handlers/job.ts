@@ -9,6 +9,7 @@ import {
   takeJob,
   submitJobOutputs,
   getJob,
+  abortJob,
 } from '../db/job_cache';
 import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
@@ -87,8 +88,7 @@ export class FinishJob extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              message: z.string(),
-              data: z.any(),
+              message: z.string().default('ok'),
             }),
           },
         },
@@ -106,6 +106,9 @@ export class FinishJob extends OpenAPIRoute {
     }
     if (job.assigner !== worker) {
       throw new GatewayServiceError(403, 'Job not assigned to this worker');
+    }
+    if (job.status == JobStatus.ABORTED) {
+      throw new GatewayServiceError(410, 'Job aborted');
     }
     if (job.status != JobStatus.ASSIGNED) {
       throw new GatewayServiceError(400, 'Job already finished');
@@ -125,9 +128,7 @@ export class FinishJob extends OpenAPIRoute {
     if (data.body.usage) {
       await settleJobRewards(c.env, publisher, estimatedCost, pool, data.body.usage, worker);
     }
-    return c.json({
-      message: 'ok',
-    });
+    return c.json({ message: 'ok' });
   }
 }
 
@@ -300,20 +301,33 @@ export class ChatCompletions extends OpenAPIRoute {
     const jobId = jobIds[0];
     const startTime = Date.now();
     if (data.body.stream) {
+      const signal = c.req.raw.signal; // Access signal from raw Request
       return new Response(
         new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
             let processed = 0;
 
+            // Add abort signal listener
+            signal.addEventListener('abort', async () => {
+              console.log('Client disconnected');
+              await abortJob(c.env, pool, jobId);
+              controller.close();
+            });
+
             while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
+              // Check if client disconnected
+              if (signal.aborted) {
+                return;
+              }
+
               try {
                 const { outputs, status } = await getJobResult(c.env, pool, jobId, processed);
                 for (const output of outputs) {
                   controller.enqueue(encoder.encode(output));
                 }
                 processed += outputs.length;
-                if (status === JobStatus.COMPLETED || status === JobStatus.FAILED) {
+                if (status === JobStatus.COMPLETED) {
                   controller.close();
                   return;
                 }
@@ -326,6 +340,8 @@ export class ChatCompletions extends OpenAPIRoute {
                 await new Promise(resolve => setTimeout(resolve, 500));
               }
             }
+            await abortJob(c.env, pool, jobId);
+            controller.close();
             throw new GatewayServiceError(408, 'Request timed out');
           },
         }),

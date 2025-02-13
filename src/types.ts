@@ -13,6 +13,7 @@ export const JobStatus = {
   ASSIGNED: 1,
   COMPLETED: 2,
   FAILED: 3,
+  ABORTED: 4,
 } as const;
 
 export const JobType = {

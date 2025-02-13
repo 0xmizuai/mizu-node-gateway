@@ -350,3 +350,13 @@ export async function cleanUpPool(env: Env, poolId: number) {
   // update pool cleanedAt
   await env.DB.prepare('UPDATE pools SET cleanedAt = ? WHERE id = ?').bind(now, poolId).run();
 }
+
+export async function abortJob(env: Env, pool: PoolConfig, jobId: number) {
+  const now = Math.floor(Date.now() / 1000);
+  const sql = `
+      UPDATE ${JOB_DATA_TABLE_NAME}
+      SET status = ?, updatedAt = ?
+      WHERE id = ? AND status = ?
+    `;
+  await query(env, pool.databaseId, sql, [JobStatus.ABORTED, now, jobId, JobStatus.ASSIGNED]);
+}
