@@ -257,13 +257,12 @@ export async function getJobResult(
   startIndex = 0,
 ): Promise<JobResultDB> {
   const sql = `
-      SELECT json(
-        json_extract(
-          COALESCE(json(outputs), json_array()),
-          '$[' || CAST(? AS INTEGER) || ':]'
-        )
-      ) as outputs, status 
-      FROM ${JOB_DATA_TABLE_NAME} 
+      SELECT json_group_array(value) as outputs, status 
+      FROM (
+        SELECT value 
+        FROM json_each(COALESCE(outputs, '[]')) 
+        WHERE key >= ?
+      ) subq, ${JOB_DATA_TABLE_NAME}
       WHERE id = ?
     `;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [startIndex, jobId]);
@@ -275,7 +274,7 @@ export async function getJobResult(
   }
   const row = results[0].results[0];
   return {
-    outputs: JSON.parse(row.outputs) as JobOutput[],
+    outputs: JSON.parse(row.outputs || '[]') as JobOutput[],
     status: row.status,
   };
 }
