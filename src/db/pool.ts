@@ -55,7 +55,7 @@ export async function scheduleCleanup(env: Env, poolId: number): Promise<string>
     headers: {
       'X-API-KEY': env.INTERNAL_SERVICE_API_KEY,
     },
-    cron: '* /5 * * *', // every 5 minutes
+    cron: '*/5 * * * *', // every 5 minutes
   });
   await env.DB.prepare('UPDATE pools SET scheduleId = ? WHERE id = ?')
     .bind(scheduleId, poolId)
@@ -107,14 +107,14 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
     throw new GatewayServiceError(409, 'Pool name already exists');
   }
 
-  const stmt = env.DB.prepare(
-    'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt, databaseId) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
-  );
   const now = Math.floor(Date.now() / 1000);
   const prices = JSON.stringify(pool.prices);
   const database_id = await createPoolCacheDB(env, pool.name);
+  const stmt = env.DB.prepare(
+    'INSERT INTO pools (name, model, owner, prices, ' +
+      'contextLength, maxOutput, createdAt, updatedAt, databaseId) VALUES ' +
+      '(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+  );
   const result = await stmt
     .bind(
       pool.name,
@@ -135,6 +135,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
       }
       throw new GatewayServiceError(500, `Database error: ${err.message}`);
     });
+
   if (!result.success || result.results.length === 0) {
     throw new GatewayServiceError(500, 'Failed to create pool');
   }

@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
   createdAt INTEGER NOT NULL DEFAULT (unixepoch()),
   updatedAt INTEGER NOT NULL DEFAULT (unixepoch())
 );
-
-CREATE INDEX IF NOT EXISTS idx_job_data_expiredAt ON ${JOB_DATA_TABLE_NAME} (expiredAt);
 `;
 
 function jobQueuekey(poolId: number) {
