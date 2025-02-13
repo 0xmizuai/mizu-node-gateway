@@ -9,11 +9,12 @@ import {
   takeJob,
   submitJobOutputs,
   getJob,
+  deleteJob,
 } from '../db/job_cache';
 import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
 
-const DEFAULT_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 600000;
 
 export class TakeJob extends OpenAPIRoute {
   schema = {
@@ -312,12 +313,16 @@ export class ChatCompletions extends OpenAPIRoute {
       return new Response(
         new ReadableStream({
           async start(controller) {
+            console.log('start');
+
             const encoder = new TextEncoder();
             let processed = 0;
 
             while (Date.now() - startTime <= DEFAULT_TIMEOUT_MS) {
               try {
+                console.log('getJobResult');
                 const { outputs, status } = await getJobResult(c.env, pool, jobId, processed);
+                console.log('outputs: ', outputs);
                 for (const output of outputs) {
                   console.log('output: ', output.inferenceResult);
                   controller.enqueue(
@@ -325,9 +330,10 @@ export class ChatCompletions extends OpenAPIRoute {
                   );
                 }
                 processed += outputs.length;
-                if (status !== 0) {
+                if (status === JobStatus.COMPLETED || status === JobStatus.FAILED) {
                   controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                   controller.close();
+                  // await deleteJob(c.env, pool, jobId);
                   return;
                 }
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -339,6 +345,7 @@ export class ChatCompletions extends OpenAPIRoute {
                 await new Promise(resolve => setTimeout(resolve, 500));
               }
             }
+            // await deleteJob(c.env, pool, jobId);
             throw new GatewayServiceError(408, 'Request timed out');
           },
         }),

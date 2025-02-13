@@ -262,6 +262,9 @@ export async function getJobResult(
       WHERE ${JOB_DATA_TABLE_NAME}.id = ? 
         AND je.key >= ?
     `;
+  console.log('sql: ', sql);
+  console.log('jobId: ', jobId);
+  console.log('startIndex: ', startIndex);
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [jobId, startIndex]);
   if (results.length === 0 || results[0].results.length === 0) {
     return {
@@ -286,6 +289,13 @@ export async function queryPoolStats(env: Env, pool: PoolConfig): Promise<Record
     acc[row.status] = row.count;
     return acc;
   }, {} as Record<number, number>);
+}
+
+export async function deleteJob(env: Env, pool: PoolConfig, jobId: number) {
+  const sql = `
+      DELETE FROM ${JOB_DATA_TABLE_NAME} WHERE id = ?
+    `;
+  await query(env, pool.databaseId, sql, [jobId]);
 }
 
 export async function getPoolStats(
