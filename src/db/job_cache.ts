@@ -252,7 +252,7 @@ export async function getJobResult(
       SELECT json(
         json_extract(
           COALESCE(json(outputs), json_array()),
-          '$[' || ? || ':]'
+          '$[' || CAST(? AS INTEGER) || ':]'
         )
       ) as outputs, status 
       FROM ${JOB_DATA_TABLE_NAME} 
