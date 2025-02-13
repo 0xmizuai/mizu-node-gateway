@@ -316,8 +316,8 @@ export async function cleanUpPool(env: Env, poolId: number) {
     `;
   await query(env, pool.databaseId, deleteFinishedJobsSql, [
     now,
-    JobStatus.PENDING,
-    JobStatus.ASSIGNED,
+    JobStatus.FAILED,
+    JobStatus.COMPLETED,
   ]);
 
   // Reset expired jobs

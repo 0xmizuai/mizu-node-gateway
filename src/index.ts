@@ -57,7 +57,9 @@ app.use('/take_job', jwtOrApiKeyAuthMiddleware);
 app.use('/finish_job', jwtOrApiKeyAuthMiddleware);
 app.use('/publish_inference_jobs', jwtOrApiKeyAuthMiddleware);
 app.use('/job_results', jwtOrApiKeyAuthMiddleware);
-app.use('/pool/:id/chat/completions', jwtOrApiKeyAuthMiddleware);
+
+// OpenAI API
+app.use('/v1/chat/completions', jwtOrApiKeyAuthMiddleware);
 
 app.use('/pool_stats', jwtAuthMiddleware);
 app.use('/new_pool', jwtAuthMiddleware);
@@ -108,7 +110,9 @@ openapi.get('/take_job', TakeJob);
 openapi.post('/finish_job', FinishJob);
 openapi.post('/publish_inference_jobs', PublishInferenceJobs);
 openapi.get('/job_results', GetJobResults);
-openapi.post('/chat/completions', ChatCompletions);
+
+// OpenAI API
+openapi.post('/v1/chat/completions', ChatCompletions);
 
 openapi.get('/pool_stats', GetPoolStats);
 openapi.post('/new_pool', CreatePool);
