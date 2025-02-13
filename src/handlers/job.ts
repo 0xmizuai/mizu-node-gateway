@@ -15,6 +15,7 @@ import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } fro
 import { estimateCost } from '../utils';
 
 const DEFAULT_TIMEOUT_MS = 600000;
+const MAX_JOB_TTL = 3600 * 24 * 3; // 3 days
 
 export class TakeJob extends OpenAPIRoute {
   schema = {
@@ -153,6 +154,7 @@ async function handleJobRequest(
   c: GatewayServiceContext,
   pool: PoolConfig,
   contexts: OpenAiInput[],
+  ttl: number,
 ): Promise<number[]> {
   const user = c.get('userId');
   const inputData = contexts.map(context => {
@@ -168,7 +170,7 @@ async function handleJobRequest(
     throw new GatewayServiceError(400, 'Insufficient balance');
   }
 
-  const jobIds = await insertJobs(c.env, pool, user, inputData);
+  const jobIds = await insertJobs(c.env, pool, user, inputData, ttl);
   await lockSpending(c.env, user, totalCost);
   return jobIds;
 }
@@ -209,7 +211,7 @@ export class PublishInferenceJobs extends OpenAPIRoute {
     if (!pool) {
       throw new GatewayServiceError(404, 'Pool not found');
     }
-    const jobIds = await handleJobRequest(c, pool, data.body.contexts);
+    const jobIds = await handleJobRequest(c, pool, data.body.contexts, MAX_JOB_TTL);
     return c.json({
       data: {
         jobIds: jobIds,
@@ -288,12 +290,17 @@ export class ChatCompletions extends OpenAPIRoute {
     if (!pool) {
       throw new GatewayServiceError(404, 'Pool not found');
     }
-    const jobIds = await handleJobRequest(c, pool, [
-      {
-        ...data.body,
-        model,
-      },
-    ]);
+    const jobIds = await handleJobRequest(
+      c,
+      pool,
+      [
+        {
+          ...data.body,
+          model,
+        },
+      ],
+      1800,
+    );
     if (jobIds.length !== 1) {
       throw new GatewayServiceError(500, 'Failed to publish jobs');
     }

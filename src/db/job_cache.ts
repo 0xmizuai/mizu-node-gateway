@@ -4,8 +4,6 @@ import { InferenceContext, JobResultDB, JobStatus, JobType, PoolConfig, WorkerJo
 import { GatewayServiceError } from '../types';
 import { getPool } from './pool';
 
-const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
-
 const MAX_JOB_PROCESSING_TIME = 600; // 10 mins
 
 const JOB_DATA_TABLE_NAME = 'job_data';
@@ -97,11 +95,12 @@ export async function insertJobs(
     context: InferenceContext;
     estimatedCost: number;
   }[],
+  ttl: number,
 ): Promise<number[]> {
   const now = Math.floor(Date.now() / 1000);
   const values = await Promise.all(
     inputData.map(async input => {
-      return [publisher, input.estimatedCost, JSON.stringify(input.context), now + MAX_JOB_TTL];
+      return [publisher, input.estimatedCost, JSON.stringify(input.context), now + ttl];
     }),
   );
   const fields = [
