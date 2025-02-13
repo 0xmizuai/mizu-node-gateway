@@ -216,7 +216,7 @@ export async function submitJobOutputs(
       RETURNING publisher, estimatedCost, outputs
     `;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [
-    jobOutputs,
+    JSON.stringify(jobOutputs),
     status,
     now,
     jobId,
