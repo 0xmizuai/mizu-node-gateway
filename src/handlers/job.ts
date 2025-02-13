@@ -319,7 +319,10 @@ export class ChatCompletions extends OpenAPIRoute {
               try {
                 const { outputs, status } = await getJobResult(c.env, pool, jobId, processed);
                 for (const output of outputs) {
-                  controller.enqueue(encoder.encode(JSON.stringify(output.inferenceResult)));
+                  console.log('output: ', output.inferenceResult);
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify(output.inferenceResult)}\n\n`),
+                  );
                 }
                 processed += outputs.length;
                 if (status !== 0) {

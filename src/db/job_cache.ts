@@ -62,6 +62,7 @@ async function query(env: Env, dbId: string, sql: string, params: any[]): Promis
     success: boolean;
   } = await result.json();
   if (!data.success) {
+    console.error(`Failed to query: ${JSON.stringify(data)}`);
     throw new GatewayServiceError(500, 'Failed to query');
   }
   return data.result;
@@ -254,15 +255,14 @@ export async function getJobResult(
   startIndex = 0,
 ): Promise<JobResultDB> {
   const sql = `
-      SELECT json_group_array(value) as outputs, status 
-      FROM (
-        SELECT value 
-        FROM json_each(COALESCE(outputs, '[]')) 
-        WHERE key >= ?
-      ) subq, ${JOB_DATA_TABLE_NAME}
-      WHERE id = ?
+      SELECT status,
+             json_group_array(je.value) as outputs
+      FROM ${JOB_DATA_TABLE_NAME},
+           json_each(${JOB_DATA_TABLE_NAME}.outputs) as je
+      WHERE id = ? 
+      AND je.key >= ?
     `;
-  const results: QueryResult[] = await query(env, pool.databaseId, sql, [startIndex, jobId]);
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, [jobId, startIndex]);
   if (results.length === 0 || results[0].results.length === 0) {
     return {
       outputs: [],
