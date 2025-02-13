@@ -4,7 +4,7 @@ import { InferenceContext, JobResultDB, JobStatus, JobType, PoolConfig, WorkerJo
 import { GatewayServiceError } from '../types';
 import { getPool } from './pool';
 
-const MAX_JOB_PROCESSING_TIME = 600; // 10 mins
+const MAX_JOB_PROCESSING_TIME = 900; // 15 mins
 
 const JOB_DATA_TABLE_NAME = 'job_data';
 const CREATE_JOB_DATA_TABLE_SQL = `
@@ -113,14 +113,35 @@ export async function insertJobs(
       INSERT INTO ${JOB_DATA_TABLE_NAME} (${fields.join(', ')}) VALUES ${values
     .map(() => `(?, ?, ?, ?)`)
     .join(',')}
-      RETURNING id
+      RETURNING id, expiredAt
     `;
   const result: QueryResult[] = await query(env, pool.databaseId, sql, values.flat());
-  const rows = result[0].results;
-  const jobIds = rows.map(row => row.id);
+  const rows = result[0].results.map(row => JSON.stringify(row));
   const redis = Redis.fromEnv(env);
-  await redis.rpush(jobQueuekey(pool.id), ...jobIds);
-  return jobIds;
+  await redis.lpush(jobQueuekey(pool.id), ...rows);
+  return result[0].results.map(row => row.id);
+}
+
+export async function getJobQueue(
+  env: Env,
+  pool: PoolConfig,
+  maxRetries = 100,
+): Promise<number | null> {
+  if (maxRetries <= 0) {
+    return null;
+  }
+
+  const redis = Redis.fromEnv(env);
+  const row = await redis.lpop(jobQueuekey(pool.id));
+  if (!row) {
+    return null;
+  }
+
+  const { id, expiredAt } = JSON.parse(row as string);
+  if (expiredAt < Math.floor(Date.now() / 1000)) {
+    return await getJobQueue(env, pool, maxRetries - 1);
+  }
+  return id;
 }
 
 export async function takeJob(
@@ -128,12 +149,10 @@ export async function takeJob(
   pool: PoolConfig,
   worker: string,
 ): Promise<WorkerJob | null> {
-  const redis = Redis.fromEnv(env);
-  const rawId = await redis.lpop(jobQueuekey(pool.id));
-  if (!rawId) {
+  const jobId = await getJobQueue(env, pool);
+  if (jobId === null) {
     return null;
   }
-  const jobId = parseInt(rawId as string);
   const now = Math.floor(Date.now() / 1000);
   const sql = `
     UPDATE ${JOB_DATA_TABLE_NAME}
@@ -153,12 +172,11 @@ export async function takeJob(
   if (results.length === 0 || results[0].results.length === 0) {
     return null;
   }
-  const row = results[0].results[0];
   return {
     jobId: jobId,
     jobType: JobType.INFERENCE,
     referenceId: pool.id,
-    jobCtx: JSON.parse(row.input),
+    jobCtx: JSON.parse(results[0].results[0].input),
   };
 }
 
@@ -313,23 +331,19 @@ export async function cleanUpPool(env: Env, poolId: number) {
   }
   const now = Math.floor(Date.now() / 1000);
 
-  // Delete finished jobs
+  // Delete expired jobs
   const deleteFinishedJobsSql = `
       DELETE FROM ${JOB_DATA_TABLE_NAME} 
-      WHERE expiredAt < ? AND status IN (?, ?)
+      WHERE expiredAt < ? AND status <> ?
     `;
-  await query(env, pool.databaseId, deleteFinishedJobsSql, [
-    now,
-    JobStatus.FAILED,
-    JobStatus.COMPLETED,
-  ]);
+  await query(env, pool.databaseId, deleteFinishedJobsSql, [now, JobStatus.ASSIGNED]);
 
-  // Reset expired jobs
+  // Reset hanging jobs
   const resetExpiredJobsSql = `
         UPDATE ${JOB_DATA_TABLE_NAME}
         SET status = ?, assigner = ?, assignedAt = ?, updatedAt = ?
-        WHERE status = ? AND assignedAt < ?
-        RETURNING id
+        WHERE status = ? AND assignedAt < ? AND expiredAt > ?
+        RETURNING id, expiredAt
     `;
   const redis = Redis.fromEnv(env);
   const results2: QueryResult[] = await query(env, pool.databaseId, resetExpiredJobsSql, [
@@ -339,11 +353,12 @@ export async function cleanUpPool(env: Env, poolId: number) {
     now,
     JobStatus.ASSIGNED,
     now - MAX_JOB_PROCESSING_TIME,
+    now,
   ]);
   const rows = results2[0].results;
   if (rows.length > 0) {
-    const jobIds = rows.map(row => row.id);
-    await redis.lpush(jobQueuekey(pool.id), ...jobIds.map(id => id.toString()));
+    const values = rows.map(row => JSON.stringify(row));
+    await redis.lpush(jobQueuekey(pool.id), ...values);
   }
 
   // update pool cleanedAt
