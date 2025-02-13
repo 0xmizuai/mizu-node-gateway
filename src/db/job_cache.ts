@@ -205,11 +205,11 @@ export async function submitJobOutputs(
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
       SET outputs = (
-        SELECT json_group_array(value)
+        SELECT json_group_array(json(value))
         FROM (
           SELECT value FROM json_each(COALESCE(outputs, '[]'))
           UNION ALL
-          SELECT value FROM json_each(?)
+          SELECT json(value) as value FROM json_each(?)
         )
       ),
       status = ?,
