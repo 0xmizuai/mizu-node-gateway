@@ -1,9 +1,17 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-import { getPools, createPool, getPool, updatePool, getUserPools, getPoolsByIds } from '../db/pool';
+import {
+  getPools,
+  createPool,
+  getPool,
+  updatePool,
+  getUserPools,
+  getPoolsByIds,
+  getTotalPoolCount,
+} from '../db/pool';
 import { GatewayServiceContext, GatewayServiceError, PoolStatus } from '../types';
 import { settlePoolRewards } from '../db/credit';
-import { getPoolStats } from '../db/job_cache';
+import { cleanUpPool, getPoolStats } from '../db/job_cache';
 
 const poolInputSchema = z.object({
   name: z.string(),
@@ -64,36 +72,6 @@ export class GetPoolStats extends OpenAPIRoute {
     const pools = await getPoolsByIds(c.env, poolIds);
     const stats = await getPoolStats(c.env, pools);
     return c.json({ data: { stats } });
-  }
-}
-
-export class GetPools extends OpenAPIRoute {
-  schema = {
-    request: {
-      query: z.object({
-        limit: z.number().int().min(1).max(1000).default(1000).optional(),
-      }),
-    },
-    responses: {
-      '200': {
-        description: '',
-        content: {
-          'application/json': {
-            schema: z.object({
-              data: z.array(poolSchema),
-            }),
-          },
-        },
-      },
-    },
-  };
-
-  async handle(c: GatewayServiceContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const pools = await getPools(c.env, data.query.limit);
-    return c.json({
-      data: pools,
-    });
   }
 }
 
@@ -275,6 +253,67 @@ export class SettlePoolRewards extends OpenAPIRoute {
       throw new GatewayServiceError(403, 'Forbidden');
     }
     await settlePoolRewards(c.env, pool);
+    return c.json({ message: 'ok' });
+  }
+}
+
+export class GetPools extends OpenAPIRoute {
+  schema = {
+    request: {
+      query: z.object({
+        pageSize: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.number().int().min(0).default(1).optional(),
+      }),
+    },
+    responses: {
+      '200': {
+        description: '',
+        content: {
+          'application/json': {
+            schema: z.object({
+              data: z.array(poolSchema),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const pageSize = data.query.pageSize ?? 50;
+    const page = data.query.page ?? 1;
+    const totalPools = await getTotalPoolCount(c.env);
+    const totalPages = Math.ceil(totalPools / pageSize);
+    if (page > totalPages) {
+      throw new GatewayServiceError(400, 'Invalid page');
+    }
+    const pools = await getPools(c.env, page, pageSize);
+    return c.json({
+      totalPages,
+      totalPools,
+      data: pools,
+    });
+  }
+}
+
+export class CleanUpPool extends OpenAPIRoute {
+  schema = {
+    request: {
+      params: z.object({
+        id: z.number().int(),
+      }),
+    },
+    responses: {
+      '200': {
+        description: '',
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    await cleanUpPool(c.env, data.params.id);
     return c.json({ message: 'ok' });
   }
 }

@@ -34,8 +34,13 @@ export type GatewayServiceContext = Context<{
     KV: KVNamespace;
     DB: D1Database;
     JWT_PUB_KEY: string;
+    INTERNAL_SERVICE_API_KEY: string;
     UPSTASH_REDIS_REST_URL: string;
     UPSTASH_REDIS_REST_TOKEN: string;
+    QSTASH_TOKEN: string;
+    QSTASH_URL: string;
+    QSTASH_CURRENT_SIGNING_KEY: string;
+    QSTASH_NEXT_SIGNING_KEY: string;
     CF_ACCOUNT_ID: string;
     CF_KV_NAMESPACE_ID: string;
     CF_API_TOKEN: string;
@@ -95,6 +100,8 @@ export interface PoolConfig extends PoolConfigInput {
   updatedAt?: number;
   inputTokens: number;
   outputTokens: number;
+  cleanedAt: number;
+  scheduleId: string;
 }
 
 export interface Balance {

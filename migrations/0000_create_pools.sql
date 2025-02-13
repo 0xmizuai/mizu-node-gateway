@@ -14,8 +14,10 @@ CREATE TABLE pools (
     earnings BIGINT NOT NULL DEFAULT 0,
     settledEarnings BIGINT NOT NULL DEFAULT 0,
     lastSettledDay INTEGER NOT NULL DEFAULT 0,
-    database_id TEXT NOT NULL,
+    databaseId TEXT NOT NULL,
     status INTEGER NOT NULL DEFAULT 0,
+    scheduleId TEXT NOT NULL DEFAULT '',
+    cleanedAt INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
 );

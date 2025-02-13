@@ -1,5 +1,27 @@
+import { Client } from '@upstash/qstash';
+
 import { PoolConfig, GatewayServiceError, PoolConfigInput, PoolStatus } from '../types';
 import { createPoolCacheDB } from './job_cache';
+
+export function toPoolConfigPublic(pool: PoolConfig): Partial<PoolConfig> {
+  return {
+    id: Number(pool.id),
+    name: pool.name as string,
+    model: pool.model as string,
+    status: pool.status as PoolStatus,
+    prices: pool.prices as { input: number; output: number },
+    contextLength: Number(pool.contextLength),
+    maxOutput: Number(pool.maxOutput),
+    feeRatio: Number(pool.feeRatio),
+    inputTokens: Number(pool.inputTokens),
+    outputTokens: Number(pool.outputTokens),
+    earnings: Number(pool.earnings),
+    settledEarnings: Number(pool.settledEarnings),
+    lastSettledDay: Number(pool.lastSettledDay),
+    createdAt: Number(pool.createdAt),
+    updatedAt: Number(pool.updatedAt),
+  };
+}
 
 function toPoolConfig(row: any): PoolConfig {
   return {
@@ -19,12 +41,37 @@ function toPoolConfig(row: any): PoolConfig {
     feeRatio: Number(row.feeRatio),
     createdAt: Number(row.createdAt),
     updatedAt: Number(row.updatedAt),
+    cleanedAt: Number(row.cleanedAt),
+    scheduleId: row.scheduleId as string,
   } as PoolConfig;
 }
 
-export async function getPools(env: Env, limit = 1000): Promise<PoolConfig[]> {
-  const stmt = env.DB.prepare('SELECT * FROM pools LIMIT ?');
-  const result = await stmt.bind(limit).all();
+export async function scheduleCleanup(env: Env, poolId: number): Promise<string> {
+  const client = new Client({
+    token: env.QSTASH_TOKEN,
+  });
+  const { scheduleId } = await client.schedules.create({
+    destination: `https://node.mizuai.io/cleanup_pool/${poolId}`,
+    headers: {
+      'X-API-KEY': env.INTERNAL_SERVICE_API_KEY,
+    },
+    cron: '* /5 * * *', // every 5 minutes
+  });
+  await env.DB.prepare('UPDATE pools SET scheduleId = ? WHERE id = ?')
+    .bind(scheduleId, poolId)
+    .run();
+  return scheduleId;
+}
+
+export async function getTotalPoolCount(env: Env): Promise<number> {
+  const stmt = env.DB.prepare('SELECT COUNT(*) FROM pools');
+  const result = await stmt.first();
+  return Number(result?.count);
+}
+
+export async function getPools(env: Env, page: number, pageSize: number): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare('SELECT * FROM pools LIMIT ? OFFSET ?');
+  const result = await stmt.bind(pageSize, (page - 1) * pageSize).all();
   return result.results.map(toPoolConfig);
 }
 
@@ -48,7 +95,11 @@ export async function getPool(env: Env, id: number): Promise<PoolConfig> {
   if (result === null) {
     throw new GatewayServiceError(404, 'Pool not found');
   }
-  return toPoolConfig(result);
+  const config = toPoolConfig(result);
+  if (config.scheduleId == '') {
+    config.scheduleId = await scheduleCleanup(env, config.id);
+  }
+  return config;
 }
 
 export async function createPool(env: Env, user: string, pool: PoolConfigInput): Promise<number> {
@@ -58,7 +109,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
 
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt, database_id) VALUES ' +
+      'contextLength, maxOutput, createdAt, updatedAt, databaseId) VALUES ' +
       '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
   );
   const now = Math.floor(Date.now() / 1000);
@@ -87,7 +138,9 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   if (!result.success || result.results.length === 0) {
     throw new GatewayServiceError(500, 'Failed to create pool');
   }
-  return Number(result.results[0].id);
+  const poolId = Number(result.results[0].id);
+  await scheduleCleanup(env, poolId);
+  return poolId;
 }
 
 export async function updatePool(

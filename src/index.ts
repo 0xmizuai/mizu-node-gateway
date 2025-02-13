@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 
 import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
-import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware } from './auth';
+import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware, serviceApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance, InitUser } from './handlers/credit';
 import {
@@ -21,6 +21,7 @@ import {
   UpdatePool,
   SettlePoolRewards,
   GetUserPools,
+  CleanUpPool,
 } from './handlers/pool';
 
 const app = new Hono<{
@@ -28,8 +29,13 @@ const app = new Hono<{
     KV: KVNamespace;
     D1: D1Database;
     JWT_PUB_KEY: string;
+    INTERNAL_SERVICE_API_KEY: string;
     UPSTASH_REDIS_REST_URL: string;
     UPSTASH_REDIS_REST_TOKEN: string;
+    QSTASH_TOKEN: string;
+    QSTASH_URL: string;
+    QSTASH_CURRENT_SIGNING_KEY: string;
+    QSTASH_NEXT_SIGNING_KEY: string;
     CF_ACCOUNT_ID: string;
     CF_KV_NAMESPACE_ID: string;
     CF_API_TOKEN: string;
@@ -53,11 +59,13 @@ app.use('/publish_inference_jobs', jwtOrApiKeyAuthMiddleware);
 app.use('/job_results', jwtOrApiKeyAuthMiddleware);
 app.use('/pool/:id/chat/completions', jwtOrApiKeyAuthMiddleware);
 
-app.use('/user_pools', jwtAuthMiddleware);
 app.use('/pool_stats', jwtAuthMiddleware);
 app.use('/new_pool', jwtAuthMiddleware);
+app.use('/user_pools', jwtAuthMiddleware);
+app.use('/pool/:id', jwtAuthMiddleware);
 app.use('/update_pool/:id', jwtAuthMiddleware);
 app.use('/settle_pool', jwtAuthMiddleware);
+app.use('/cleanup_pool/:id', serviceApiKeyAuthMiddleware);
 
 app.use('/user/init', jwtAuthMiddleware);
 app.use('/user/deposit', jwtAuthMiddleware);
@@ -108,6 +116,7 @@ openapi.get('/user_pools', GetUserPools);
 openapi.get('/pool/:id', GetPool);
 openapi.post('/update_pool/:id', UpdatePool);
 openapi.post('/settle_pool', SettlePoolRewards);
+openapi.post('/cleanup_pool/:id', CleanUpPool);
 
 openapi.post('/user/init', InitUser);
 openapi.post('/user/deposit', Deposit);

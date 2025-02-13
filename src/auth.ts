@@ -4,6 +4,14 @@ import { Next } from 'hono';
 import { GatewayServiceContext } from './types';
 import { getUserFromApiKey } from './db/api_key';
 
+export async function serviceApiKeyAuthMiddleware(c: GatewayServiceContext, next: Next) {
+  const apiKey = c.req.header('X-API-KEY');
+  if (apiKey !== c.env.INTERNAL_SERVICE_API_KEY) {
+    return c.text('Unauthorized', 401);
+  }
+  await next();
+}
+
 // Authentication middleware for JWT or API_KEY
 export async function jwtOrApiKeyAuthMiddleware(c: GatewayServiceContext, next: Next) {
   try {

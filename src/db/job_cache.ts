@@ -11,8 +11,11 @@ import {
   WorkerJob,
 } from '../types';
 import { GatewayServiceError } from '../types';
+import { getPool } from './pool';
 
 const MAX_JOB_TTL = 60 * 60 * 24 * 7; // 7 days
+
+const MAX_JOB_PROCESSING_TIME = 600; // 10 mins
 
 const JOB_DATA_TABLE_NAME = 'job_data';
 const CREATE_JOB_DATA_TABLE_SQL = `
@@ -20,10 +23,11 @@ CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
   id INTEGER PRIMARY KEY,
   input JSONB NOT NULL DEFAULT '{}',
   outputs JSONB NOT NULL DEFAULT '[]',
+  estimatedCost INTEGER NOT NULL,
   status INTEGER NOT NULL DEFAULT 0,
   publisher TEXT NOT NULL,
   assigner TEXT NOT NULL,
-  estimatedCost INTEGER NOT NULL,
+  assignedAt INTEGER NOT NULL DEFAULT 0,
   expiredAt INTEGER NOT NULL DEFAULT 0,
   createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   updatedAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
@@ -138,12 +142,13 @@ export async function takeJob(
   const now = Math.floor(Date.now() / 1000);
   const sql = `
       UPDATE ${JOB_DATA_TABLE_NAME} 
-      SET assigner = ?, status = ?, updatedAt = ?
+      SET assigner = ?, status = ?, assignedAt = ?, updatedAt = ?
       WHERE id = ?
       RETURNING input`;
   const results: { input: InferenceContext }[] = await query(env, pool.databaseId, sql, [
     worker,
     JobStatus.ASSIGNED,
+    now,
     now,
     jobId,
   ]);
@@ -298,4 +303,43 @@ export async function getPoolStats(
     });
     return acc;
   }, {} as Record<number, Record<number, number>>);
+}
+
+export async function cleanUpPool(env: Env, poolId: number) {
+  const pool = await getPool(env, poolId);
+  if (!pool) {
+    throw new GatewayServiceError(404, 'Pool not found');
+  }
+  const now = Math.floor(Date.now() / 1000);
+
+  // Delete finished jobs
+  const deleteFinishedJobsSql = `
+      DELETE FROM ${JOB_DATA_TABLE_NAME} WHERE expiredAt < ? AND status IN (?, ?)
+    `;
+  await query(env, pool.databaseId, deleteFinishedJobsSql, [
+    now,
+    JobStatus.PENDING,
+    JobStatus.ASSIGNED,
+  ]);
+
+  // Reset expired jobs
+  const resetExpiredJobsSql = `
+        UPDATE ${JOB_DATA_TABLE_NAME}
+        SET status = ?, assigner = ?, assignedAt = ?, updatedAt = ?
+        WHERE status = ? AND assignedAt < ?
+        RETURNING id
+    `;
+  const redis = Redis.fromEnv(env);
+  const results: { id: number }[] = await query(env, pool.databaseId, resetExpiredJobsSql, [
+    JobStatus.PENDING,
+    null,
+    0,
+    now,
+    JobStatus.ASSIGNED,
+    now - MAX_JOB_PROCESSING_TIME,
+  ]);
+  await redis.lpush(jobQueuekey(pool.id), ...results.map(result => result.id.toString()));
+
+  // update pool cleanedAt
+  await env.DB.prepare('UPDATE pools SET cleanedAt = ? WHERE id = ?').bind(now, poolId).run();
 }
