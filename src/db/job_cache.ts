@@ -47,7 +47,7 @@ async function query(env: Env, dbId: string, sql: string, params: any[]): Promis
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${dbId}/query`;
   console.log('databaseId: ', dbId);
   console.log('Generated SQL:', sql);
-  console.log('Params:', params);
+  console.log('Params:', JSON.stringify(params));
   const result = await fetch(url, {
     method: 'POST',
     headers: {
