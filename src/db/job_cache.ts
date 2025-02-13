@@ -259,8 +259,8 @@ export async function getJobResult(
              json_group_array(je.value) as outputs
       FROM ${JOB_DATA_TABLE_NAME},
            json_each(${JOB_DATA_TABLE_NAME}.outputs) as je
-      WHERE id = ? 
-      AND je.key >= ?
+      WHERE ${JOB_DATA_TABLE_NAME}.id = ? 
+        AND je.key >= ?
     `;
   const results: QueryResult[] = await query(env, pool.databaseId, sql, [jobId, startIndex]);
   if (results.length === 0 || results[0].results.length === 0) {
