@@ -1,15 +1,6 @@
 import { Redis } from '@upstash/redis/cloudflare';
 
-import {
-  InferenceContext,
-  JobOutput,
-  JobResult,
-  JobResultDB,
-  JobStatus,
-  JobType,
-  PoolConfig,
-  WorkerJob,
-} from '../types';
+import { InferenceContext, JobResultDB, JobStatus, JobType, PoolConfig, WorkerJob } from '../types';
 import { GatewayServiceError } from '../types';
 import { getPool } from './pool';
 
