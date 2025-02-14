@@ -127,6 +127,7 @@ export async function takeOneJobFromQueue(
   pool: PoolConfig,
   maxRetries = 100,
 ): Promise<number | null> {
+  const now = Math.floor(Date.now() / 1000);
   for (let i = 0; i < maxRetries; i++) {
     const redis = Redis.fromEnv(env);
     const row = await redis.lpop(jobQueuekey(pool.id));
@@ -135,7 +136,7 @@ export async function takeOneJobFromQueue(
     }
 
     const { id, expiredAt } = JSON.parse(row as string);
-    if (expiredAt < Math.floor(Date.now() / 1000)) {
+    if (expiredAt < now) {
       continue;
     }
     return id;
