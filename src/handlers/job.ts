@@ -60,6 +60,120 @@ export class TakeJob extends OpenAPIRoute {
   }
 }
 
+async function validateFinishJobRequest(
+  c: GatewayServiceContext,
+  worker: string,
+  metadata: {
+    jobId: number;
+    poolId: number;
+    jobType: number;
+  },
+): Promise<PoolConfig> {
+  const pool = await getPool(c.env, metadata.poolId);
+  const job = await getJob(c.env, pool, metadata.jobId);
+  if (!job) {
+    throw new GatewayServiceError(404, 'Job not found');
+  }
+  if (job.assigner !== worker) {
+    throw new GatewayServiceError(403, 'Job not assigned to this worker');
+  }
+  if (job.status == JobStatus.ABORTED) {
+    throw new GatewayServiceError(410, 'Job aborted');
+  }
+  if (job.status != JobStatus.ASSIGNED) {
+    throw new GatewayServiceError(400, 'Job already finished');
+  }
+  return pool;
+}
+
+function getTokenUsage(lines: string[]) {
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const jsonData = line.slice(6); // Remove 'data: ' prefix
+      if (jsonData === '[DONE]') continue;
+
+      try {
+        const parsed = JSON.parse(jsonData);
+        if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
+          return parsed.usage;
+        }
+      } catch (e) {
+        console.error('Failed to parse chunk:', e);
+      }
+    }
+  }
+  return null;
+}
+
+export class FinishJobStream extends OpenAPIRoute {
+  schema = {
+    responses: {
+      '200': {
+        description: 'Job completion response',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string().default('ok'),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const stream = c.req.raw.body;
+    if (!stream) {
+      throw new GatewayServiceError(400, 'Missing request body');
+    }
+
+    const reader = stream.getReader();
+    const { value: firstChunk, done: firstDone } = await reader.read();
+    if (firstDone || !firstChunk) {
+      throw new GatewayServiceError(400, 'Empty stream');
+    }
+
+    const metadata = JSON.parse(new TextDecoder().decode(firstChunk));
+    const worker = c.get('userId');
+    const pool = await validateFinishJobRequest(c, worker, metadata);
+
+    let tokenUsage = null;
+    try {
+      let shouldContinue = true;
+      while (shouldContinue) {
+        const { value, done } = await reader.read();
+        if (done) {
+          shouldContinue = false;
+          break;
+        }
+
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        const usage = getTokenUsage(lines);
+        if (usage != null) {
+          tokenUsage = usage;
+        }
+
+        await submitJobOutputs(c.env, pool, metadata.jobId, JobStatus.ASSIGNED, [chunk]);
+      }
+    } finally {
+      reader.releaseLock();
+      const { publisher, estimatedCost } = await submitJobOutputs(
+        c.env,
+        pool,
+        metadata.jobId,
+        JobStatus.COMPLETED,
+        [],
+      );
+      if (tokenUsage) {
+        await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
+      }
+    }
+
+    return c.json({ message: 'ok' });
+  }
+}
+
 export class FinishJob extends OpenAPIRoute {
   schema = {
     request: {
@@ -71,13 +185,6 @@ export class FinishJob extends OpenAPIRoute {
               poolId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
               jobOutputs: z.array(z.string()),
-              usage: z
-                .object({
-                  prompt_tokens: z.number().int(),
-                  completion_tokens: z.number().int(),
-                  total_tokens: z.number().int(),
-                })
-                .optional(),
             }),
           },
         },
@@ -100,34 +207,17 @@ export class FinishJob extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const worker = c.get('userId');
-    const pool = await getPool(c.env, data.body.poolId);
-    const job = await getJob(c.env, pool, data.body.jobId);
-    if (!job) {
-      throw new GatewayServiceError(404, 'Job not found');
-    }
-    if (job.assigner !== worker) {
-      throw new GatewayServiceError(403, 'Job not assigned to this worker');
-    }
-    if (job.status == JobStatus.ABORTED) {
-      throw new GatewayServiceError(410, 'Job aborted');
-    }
-    if (job.status != JobStatus.ASSIGNED) {
-      throw new GatewayServiceError(400, 'Job already finished');
-    }
-
-    let status: number = JobStatus.ASSIGNED;
-    if (data.body.usage) {
-      status = JobStatus.COMPLETED;
-    }
+    const pool = await validateFinishJobRequest(c, worker, data.body);
     const { publisher, estimatedCost } = await submitJobOutputs(
       c.env,
       pool,
       data.body.jobId,
-      status,
+      JobStatus.COMPLETED,
       data.body.jobOutputs,
     );
-    if (data.body.usage) {
-      await settleJobRewards(c.env, publisher, estimatedCost, pool, data.body.usage, worker);
+    const tokenUsage = getTokenUsage(data.body.jobOutputs);
+    if (tokenUsage) {
+      await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
     }
     return c.json({ message: 'ok' });
   }
