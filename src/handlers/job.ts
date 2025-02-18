@@ -88,18 +88,23 @@ async function validateFinishJobRequest(
 
 function getTokenUsage(lines: string[]) {
   for (const line of lines) {
+    let jsonData = null;
     if (line.startsWith('data: ')) {
-      const jsonData = line.slice(6); // Remove 'data: ' prefix
-      if (jsonData === '[DONE]') continue;
-
-      try {
-        const parsed = JSON.parse(jsonData);
-        if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
-          return parsed.usage;
-        }
-      } catch (e) {
-        console.error('Failed to parse chunk:', e);
+      // stream response
+      jsonData = line.slice(6); // Remove 'data: ' prefix
+      if (jsonData === '[DONE]') {
+        continue;
       }
+    } else {
+      jsonData = line;
+    }
+    try {
+      const parsed = JSON.parse(jsonData);
+      if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
+        return parsed.usage;
+      }
+    } catch (e) {
+      console.error('Failed to parse chunk:', e);
     }
   }
   return null;
