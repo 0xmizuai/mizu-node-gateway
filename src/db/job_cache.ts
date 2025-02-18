@@ -134,8 +134,8 @@ export async function takeOneJobFromQueue(
     if (!row) {
       return null;
     }
-
-    const { id, expiredAt } = JSON.parse(row as string);
+    // const { id, expiredAt } = JSON.parse(row as string);
+    const { id, expiredAt } = row as { id: number; expiredAt: number };
     if (expiredAt < now) {
       continue;
     }

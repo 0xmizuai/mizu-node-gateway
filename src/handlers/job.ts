@@ -128,23 +128,44 @@ export class FinishJobStream extends OpenAPIRoute {
     }
 
     const reader = stream.getReader();
-    const { value: firstChunk, done: firstDone } = await reader.read();
-    if (firstDone || !firstChunk) {
-      throw new GatewayServiceError(400, 'Empty stream');
-    }
+    // const { done: firstDone, value: firstChunk } = await reader.read();
+    // if (firstDone || !firstChunk) {
+    //   throw new GatewayServiceError(400, 'Empty stream');
+    // }
+    // const metadata = JSON.parse(lines[0] || '{}');
 
-    const metadata = JSON.parse(new TextDecoder().decode(firstChunk));
+    // console.log('firstChunk type', typeof decodeFirstChunk);
+    // const pool = await validateFinishJobRequest(c, worker, metadata);
+
     const worker = c.get('userId');
-    const pool = await validateFinishJobRequest(c, worker, metadata);
-
+    let metadata = null;
+    let pool: PoolConfig | null = null;
     let tokenUsage = null;
     try {
       let shouldContinue = true;
       while (shouldContinue) {
-        const { value, done } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) {
           shouldContinue = false;
           break;
+        }
+
+        if (metadata == null) {
+          const decodeFirstChunk = new TextDecoder().decode(value);
+          console.log('firstChunk', decodeFirstChunk);
+          const lines = decodeFirstChunk.split('\n').filter(line => line.trim() !== '');
+
+          try {
+            const metadataStr = lines[0]?.replace('data: ', '');
+            metadata = JSON.parse(metadataStr);
+            pool = await getPool(c.env, metadata.poolId);
+          } catch (err) {
+            console.error('Failed to parse metadata:', err);
+          }
+        }
+
+        if (metadata === null || pool === null) {
+          continue;
         }
 
         const chunk = new TextDecoder().decode(value);
@@ -158,15 +179,17 @@ export class FinishJobStream extends OpenAPIRoute {
       }
     } finally {
       reader.releaseLock();
-      const { publisher, estimatedCost } = await submitJobOutputs(
-        c.env,
-        pool,
-        metadata.jobId,
-        JobStatus.COMPLETED,
-        [],
-      );
-      if (tokenUsage) {
-        await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
+      if (pool) {
+        const { publisher, estimatedCost } = await submitJobOutputs(
+          c.env,
+          pool,
+          metadata.jobId,
+          JobStatus.COMPLETED,
+          [],
+        );
+        if (tokenUsage) {
+          await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
+        }
       }
     }
 
