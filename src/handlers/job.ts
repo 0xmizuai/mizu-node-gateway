@@ -212,6 +212,14 @@ export class FinishJob extends OpenAPIRoute {
                     completion_tokens: z.number().int(),
                     total_tokens: z.number().int(),
                   }),
+                  choices: z.array(
+                    z.object({
+                      message: z.object({
+                        role: z.string(),
+                        content: z.string(),
+                      }),
+                    }),
+                  ),
                 })
                 .passthrough(),
             }),
