@@ -86,26 +86,29 @@ async function validateFinishJobRequest(
   return pool;
 }
 
-function getTokenUsage(lines: string[]) {
-  for (const line of lines) {
-    let jsonData = null;
-    if (line.startsWith('data: ')) {
-      // stream response
-      jsonData = line.slice(6); // Remove 'data: ' prefix
-      if (jsonData === '[DONE]') {
-        continue;
-      }
-    } else {
-      jsonData = line;
+function getTokenUsageFromStream(data: string) {
+  const lines = data.split('\n').filter(line => line.trim() !== '');
+
+  // each data should at least have 3 lines
+  // 1. metadata
+  // 2. data with token usage
+  // 3. data: [DONE]
+  if (lines.length < 3) {
+    throw new GatewayServiceError(400, 'Invalid data');
+  }
+
+  const lastLine = lines[lines.length - 2];
+  const jsonData = lastLine.slice(6); // Remove 'data: ' prefix
+  if (jsonData === '[DONE]') {
+    throw new GatewayServiceError(400, 'Invalid data');
+  }
+  try {
+    const parsed = JSON.parse(jsonData);
+    if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
+      return parsed.usage;
     }
-    try {
-      const parsed = JSON.parse(jsonData);
-      if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
-        return parsed.usage;
-      }
-    } catch (e) {
-      console.error('Failed to parse chunk:', e);
-    }
+  } catch (e) {
+    console.error('Failed to parse chunk:', e);
   }
   return null;
 }
@@ -133,19 +136,11 @@ export class FinishJobStream extends OpenAPIRoute {
     }
 
     const reader = stream.getReader();
-    // const { done: firstDone, value: firstChunk } = await reader.read();
-    // if (firstDone || !firstChunk) {
-    //   throw new GatewayServiceError(400, 'Empty stream');
-    // }
-    // const metadata = JSON.parse(lines[0] || '{}');
-
-    // console.log('firstChunk type', typeof decodeFirstChunk);
-    // const pool = await validateFinishJobRequest(c, worker, metadata);
-
     const worker = c.get('userId');
     let metadata = null;
     let pool: PoolConfig | null = null;
-    let tokenUsage = null;
+    let firstChunk = '';
+    let data = '';
     try {
       let shouldContinue = true;
       while (shouldContinue) {
@@ -156,57 +151,44 @@ export class FinishJobStream extends OpenAPIRoute {
         }
 
         if (metadata == null) {
-          const decodeFirstChunk = new TextDecoder().decode(value);
-          console.log('firstChunk', decodeFirstChunk);
-
-          try {
-            const lines = decodeFirstChunk.split('\n').find(line => line.startsWith('metadata: '));
-            if (lines) {
-              const metadataStr = lines.replace('metadata: ', '');
-              metadata = JSON.parse(metadataStr);
-              pool = await getPool(c.env, metadata.poolId);
-            }
-          } catch (err) {
-            console.error('Failed to parse metadata:', err);
+          firstChunk = firstChunk + new TextDecoder().decode(value);
+          data += firstChunk;
+          // metadata line is completed
+          if (firstChunk.includes('\n')) {
+            const lines = firstChunk.split('\n');
+            metadata = JSON.parse(lines[0].replace('metadata: ', ''));
+            pool = await validateFinishJobRequest(c, worker, metadata);
+            await submitJobOutputs(c.env, pool, metadata.jobId, JobStatus.ASSIGNED, [
+              lines.slice(1).join('\n'),
+            ]);
+          } else {
+            // first chunk too short, wait for more data
+            continue;
           }
+        } else if (pool) {
+          const chunk = new TextDecoder().decode(value);
+          data += chunk;
+          await submitJobOutputs(c.env, pool, metadata.jobId, JobStatus.ASSIGNED, [chunk]);
         }
-
-        if (metadata === null || pool === null) {
-          continue;
-        }
-
-        const chunk = new TextDecoder().decode(value);
-        const dataLines = chunk
-          .split('\n')
-          .filter(line => line.trim() !== '')
-          .filter(line => line.startsWith('data: '));
-        const usage = getTokenUsage(dataLines);
-        if (usage != null) {
-          tokenUsage = usage;
-        }
-
-        await submitJobOutputs(
-          c.env,
-          pool,
-          metadata.jobId,
-          JobStatus.ASSIGNED,
-          dataLines.map(value => value.replace('data: ', '')),
-        );
       }
     } finally {
       reader.releaseLock();
-      if (pool) {
-        const { publisher, estimatedCost } = await submitJobOutputs(
-          c.env,
-          pool,
-          metadata.jobId,
-          JobStatus.COMPLETED,
-          [],
-        );
-        if (tokenUsage) {
-          await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
-        }
-      }
+    }
+
+    if (!pool || !metadata) {
+      throw new GatewayServiceError(404, 'Pool or job not found');
+    }
+
+    const { publisher, estimatedCost } = await submitJobOutputs(
+      c.env,
+      pool,
+      metadata.jobId,
+      JobStatus.COMPLETED,
+      [],
+    );
+    const tokenUsage = getTokenUsageFromStream(data);
+    if (tokenUsage) {
+      await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
     }
 
     return c.json({ message: 'ok' });
@@ -223,7 +205,15 @@ export class FinishJob extends OpenAPIRoute {
               jobId: z.number().int(),
               poolId: z.number().int(),
               jobType: z.number().int().min(0).max(4),
-              jobOutputs: z.array(z.string()),
+              jobOutput: z
+                .object({
+                  usage: z.object({
+                    prompt_tokens: z.number().int(),
+                    completion_tokens: z.number().int(),
+                    total_tokens: z.number().int(),
+                  }),
+                })
+                .passthrough(),
             }),
           },
         },
@@ -252,12 +242,16 @@ export class FinishJob extends OpenAPIRoute {
       pool,
       data.body.jobId,
       JobStatus.COMPLETED,
-      data.body.jobOutputs,
+      [JSON.stringify(data.body.jobOutput)],
     );
-    const tokenUsage = getTokenUsage(data.body.jobOutputs);
-    if (tokenUsage) {
-      await settleJobRewards(c.env, publisher, estimatedCost, pool, tokenUsage, worker);
-    }
+    await settleJobRewards(
+      c.env,
+      publisher,
+      estimatedCost,
+      pool,
+      data.body.jobOutput.usage,
+      worker,
+    );
     return c.json({ message: 'ok' });
   }
 }
@@ -414,7 +408,7 @@ export class ChatCompletions extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     // expected format pool/:id/model
-    const [_, poolId, model] = data.body.model.split('/', 3);
+    const [, poolId, model] = data.body.model.split('/', 3);
     const pool = await getPool(c.env, parseInt(poolId));
     if (!pool) {
       throw new GatewayServiceError(404, 'Pool not found');
