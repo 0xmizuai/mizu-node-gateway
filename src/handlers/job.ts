@@ -158,12 +158,14 @@ export class FinishJobStream extends OpenAPIRoute {
         if (metadata == null) {
           const decodeFirstChunk = new TextDecoder().decode(value);
           console.log('firstChunk', decodeFirstChunk);
-          const lines = decodeFirstChunk.split('\n').filter(line => line.trim() !== '');
 
           try {
-            const metadataStr = lines[0]?.replace('data: ', '');
-            metadata = JSON.parse(metadataStr);
-            pool = await getPool(c.env, metadata.poolId);
+            const lines = decodeFirstChunk.split('\n').find(line => line.startsWith('metadata: '));
+            if (lines) {
+              const metadataStr = lines.replace('metadata: ', '');
+              metadata = JSON.parse(metadataStr);
+              pool = await getPool(c.env, metadata.poolId);
+            }
           } catch (err) {
             console.error('Failed to parse metadata:', err);
           }
@@ -174,13 +176,22 @@ export class FinishJobStream extends OpenAPIRoute {
         }
 
         const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-        const usage = getTokenUsage(lines);
+        const dataLines = chunk
+          .split('\n')
+          .filter(line => line.trim() !== '')
+          .filter(line => line.startsWith('data: '));
+        const usage = getTokenUsage(dataLines);
         if (usage != null) {
           tokenUsage = usage;
         }
 
-        await submitJobOutputs(c.env, pool, metadata.jobId, JobStatus.ASSIGNED, [chunk]);
+        await submitJobOutputs(
+          c.env,
+          pool,
+          metadata.jobId,
+          JobStatus.ASSIGNED,
+          dataLines.map(value => value.replace('data: ', '')),
+        );
       }
     } finally {
       reader.releaseLock();
