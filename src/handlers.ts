@@ -20,6 +20,7 @@ import {
   getPool,
   getPools,
   settleTokenUsage,
+  updateCredits,
   updatePool,
 } from "./d1";
 import { estimateCost } from "./utils";
@@ -645,5 +646,47 @@ export class UpdatePool extends OpenAPIRoute {
     }
     const pool = await updatePool(c.env, existingPool, data.body);
     return c.json({ message: "ok", data: pool });
+  }
+}
+
+export class UpdateClaimed extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: z.object({
+              claimedCount: z.number().int(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      "200": {
+        description: "Success",
+        content: {
+          "application/json": {
+            schema: z.object({
+              message: z.string(),
+              data: z.object({
+                deposit: z.number().int(),
+                earnings: z.number().int(),
+                pendingCost: z.number().int(),
+                finalizedCost: z.number().int(),
+              }),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const user = c.get("userId");
+    await updateCredits(c.env, user, data.body.claimedCount);
+    const balance = await getBalance(c.env, user);
+    return c.json({ message: "ok", data: balance });
   }
 }

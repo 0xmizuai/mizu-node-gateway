@@ -39,12 +39,9 @@
     "zod": "^3.24.1"
   },
   "lint-staged": {
-    "*.{js,ts,json,md}": "npm run pre-commit"
-  },
-  "overrides": {
-    "tinypool": {
-      "typescript-eslint": "$typescript-eslint",
-      "eslint": "$eslint"
-    }
+    "*.{js,ts,json,md}": [
+      "prettier --write",
+      "git add"
+    ]
   }
 }

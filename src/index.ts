@@ -14,9 +14,11 @@ import {
   GetPoolStats,
   PublishInferenceJobs,
   TakeJob,
+  UpdateClaimed,
   UpdatePool,
 } from "./handlers";
 import { authMiddleware } from "./auth";
+import { updateCredits } from "./d1";
 
 const app = new Hono<{
   Bindings: {
@@ -55,6 +57,7 @@ app.use("/update_pool/:id", authMiddleware);
 
 app.use("/deposit", authMiddleware);
 app.use("/balance", authMiddleware);
+app.use("/updateClaimed", authMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
@@ -87,6 +90,7 @@ openapi.post("/update_pool/:id", UpdatePool);
 
 openapi.post("/deposit", Deposit);
 openapi.get("/balance", GetBalance);
+openapi.post("/updateClaimed", UpdateClaimed);
 
 // Add unauthenticated routes
 app.get("/", (c) => c.text(""));
