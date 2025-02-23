@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy:staging": "wrangler deploy --config wrangler.staging.toml",
     "start": "wrangler dev --config wrangler.local.toml --local",
     "test": "vitest",
     "cf-typegen": "wrangler types",
