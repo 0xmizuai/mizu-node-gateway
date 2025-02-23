@@ -1,17 +1,15 @@
-name = "mizu-node-gateway"
+name = "mizu_node_gateway"
 main = "src/index.ts"
 compatibility_date = "2023-12-18"
 
-kv_namespaces = [
-  { binding = "KV", id = "kv-namespace-id", preview_id = "kv-namespace-preview-id" }
-]
-
 [vars]
 JWT_PUB_KEY = "this is the internal service key"
-NODE_SERVICE_URL = "https://mizu-node-service.mizu.com"
-INTERNAL_SERVICE_API_KEY = "this is the internal service key"
+CF_ACCOUNT_ID = "this is the cloudflare account id"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "prod-d1-tutorial"
-database_id = "<unique-ID-for-your-database>"
+database_name = "mizu-token-usage"
+database_id = "local-db"
+
+[observability.logs]
+enabled = true

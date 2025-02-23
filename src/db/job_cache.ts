@@ -1,0 +1,376 @@
+import { Redis } from '@upstash/redis/cloudflare';
+
+import { InferenceContext, JobResultDB, JobStatus, JobType, PoolConfig, WorkerJob } from '../types';
+import { GatewayServiceError } from '../types';
+import { getPool } from './pool';
+
+const MAX_JOB_PROCESSING_TIME = 900; // 15 mins
+
+const JOB_DATA_TABLE_NAME = 'job_data';
+const CREATE_JOB_DATA_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS ${JOB_DATA_TABLE_NAME} (
+  id INTEGER PRIMARY KEY,
+  input JSONB NOT NULL DEFAULT '{}',
+  outputs JSONB NOT NULL DEFAULT '[]',
+  estimatedCost INTEGER NOT NULL,
+  status INTEGER NOT NULL DEFAULT 0,
+  publisher TEXT NOT NULL,
+  assigner TEXT,
+  assignedAt INTEGER NOT NULL DEFAULT 0,
+  expiredAt INTEGER NOT NULL DEFAULT 0,
+  createdAt INTEGER NOT NULL DEFAULT (unixepoch()),
+  updatedAt INTEGER NOT NULL DEFAULT (unixepoch())
+);
+`;
+
+function jobQueuekey(poolId: number) {
+  return `pool_cache_${poolId}`;
+}
+
+interface QueryResult {
+  results: any[];
+  success: boolean;
+}
+
+async function query(env: Env, dbId: string, sql: string, params: any[]): Promise<QueryResult[]> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${dbId}/query`;
+  const result = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.CF_API_TOKEN}`,
+    },
+    body: JSON.stringify({ sql: sql, params: params }),
+  });
+  if (result.status !== 200) {
+    console.error(`Failed to query: ${result.status}, ${await result.text()}`);
+    throw new GatewayServiceError(500, 'Failed to query');
+  }
+  const data: {
+    result: QueryResult[];
+    success: boolean;
+  } = await result.json();
+  if (!data.success) {
+    console.error(`Failed to query: ${JSON.stringify(data)}`);
+    throw new GatewayServiceError(500, 'Failed to query');
+  }
+  return data.result;
+}
+
+export async function createPoolCacheDB(env: Env, poolName: string): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database`;
+  const result = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.CF_API_TOKEN}`,
+    },
+    body: JSON.stringify({
+      name: `pool_cache_${poolName}_${now}`,
+    }),
+  });
+  if (result.status !== 200) {
+    console.error(`Failed to create job cache database: ${result.status}, ${await result.text()}`);
+    throw new GatewayServiceError(500, 'Failed to create job cache database');
+  }
+  const data: { result: { uuid: string }; success: boolean } = await result.json();
+  if (!data.success) {
+    console.error(`Failed to insert jobs: ${JSON.stringify(data)}`);
+    throw new GatewayServiceError(500, 'Failed to create job cache database');
+  }
+  const dbId = data.result.uuid;
+  if (!dbId) {
+    throw new GatewayServiceError(500, 'Failed to create job cache database');
+  }
+  await query(env, dbId, CREATE_JOB_DATA_TABLE_SQL, []);
+  return dbId;
+}
+
+export async function insertJobs(
+  env: Env,
+  pool: PoolConfig,
+  publisher: string,
+  inputData: {
+    context: InferenceContext;
+    estimatedCost: number;
+  }[],
+  ttl: number,
+): Promise<number[]> {
+  const now = Math.floor(Date.now() / 1000);
+  const values = await Promise.all(
+    inputData.map(async input => {
+      return [publisher, input.estimatedCost, JSON.stringify(input.context), now + ttl];
+    }),
+  );
+  const fields = [
+    'publisher',
+    'estimatedCost',
+    'input', // JSONB
+    'expiredAt',
+  ];
+  const sql = `
+      INSERT INTO ${JOB_DATA_TABLE_NAME} (${fields.join(', ')}) VALUES ${values
+    .map(() => `(?, ?, ?, ?)`)
+    .join(',')}
+      RETURNING id, expiredAt
+    `;
+  const result: QueryResult[] = await query(env, pool.databaseId, sql, values.flat());
+  const rows = result[0].results.map(row => JSON.stringify(row));
+  const redis = Redis.fromEnv(env);
+  await redis.lpush(jobQueuekey(pool.id), ...rows);
+  return result[0].results.map(row => row.id);
+}
+
+export async function takeOneJobFromQueue(
+  env: Env,
+  pool: PoolConfig,
+  maxRetries = 100,
+): Promise<number | null> {
+  const now = Math.floor(Date.now() / 1000);
+  for (let i = 0; i < maxRetries; i++) {
+    const redis = Redis.fromEnv(env);
+    const row = await redis.lpop(jobQueuekey(pool.id));
+    if (!row) {
+      return null;
+    }
+    // const { id, expiredAt } = JSON.parse(row as string);
+    const { id, expiredAt } = row as { id: number; expiredAt: number };
+    if (expiredAt < now) {
+      continue;
+    }
+    return id;
+  }
+  return null;
+}
+
+export async function takeJob(
+  env: Env,
+  pool: PoolConfig,
+  worker: string,
+): Promise<WorkerJob | null> {
+  const jobId = await takeOneJobFromQueue(env, pool);
+  if (jobId === null) {
+    return null;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const sql = `
+    UPDATE ${JOB_DATA_TABLE_NAME}
+    SET assigner = ?,
+        status = ?,
+        assignedAt = ?,
+        updatedAt = ?
+    WHERE id = ?
+    RETURNING input`;
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, [
+    worker,
+    JobStatus.ASSIGNED,
+    now,
+    now,
+    jobId,
+  ]);
+  if (results.length === 0 || results[0].results.length === 0) {
+    return null;
+  }
+  return {
+    jobId: jobId,
+    jobType: JobType.INFERENCE,
+    referenceId: pool.id,
+    jobCtx: JSON.parse(results[0].results[0].input),
+  };
+}
+
+export async function getJob(
+  env: Env,
+  pool: PoolConfig,
+  jobId: number,
+): Promise<{
+  assigner: string;
+  status: number;
+} | null> {
+  const sql = `
+      SELECT assigner, status FROM ${JOB_DATA_TABLE_NAME} WHERE id = ?
+    `;
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, [jobId]);
+  if (results.length === 0 || results[0].results.length === 0) {
+    return null;
+  }
+  return {
+    assigner: results[0].results[0].assigner,
+    status: results[0].results[0].status,
+  };
+}
+
+export async function submitJobOutputs(
+  env: Env,
+  pool: PoolConfig,
+  jobId: number,
+  status: number,
+  jobOutputs: string[],
+): Promise<{ publisher: string; estimatedCost: number }> {
+  const now = Math.floor(Date.now() / 1000);
+
+  const sql = `
+      UPDATE ${JOB_DATA_TABLE_NAME} 
+      SET outputs = (
+        SELECT json_group_array(value)
+        FROM (
+          SELECT value FROM json_each(COALESCE(outputs, '[]'))
+          UNION ALL
+          SELECT value FROM json_each(?)
+        )
+      ),
+      status = ?,
+      updatedAt = ?
+      WHERE id = ?
+      RETURNING publisher, estimatedCost
+    `;
+
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, [
+    JSON.stringify(jobOutputs),
+    status,
+    now,
+    jobId,
+  ]);
+  const row = results[0].results[0];
+  return {
+    publisher: row.publisher as string,
+    estimatedCost: row.estimatedCost as number,
+  };
+}
+
+export async function getJobResultsMap(
+  env: Env,
+  jobIds: number[],
+  pool: PoolConfig,
+): Promise<Record<number, string[]>> {
+  const sql = `
+      SELECT id, status, COALESCE(json(outputs), json_array()) as outputs 
+      FROM ${JOB_DATA_TABLE_NAME} 
+      WHERE id IN (${jobIds.map(() => '?').join(',')})
+    `;
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, jobIds);
+  const rows = results[0].results;
+  return rows.reduce((acc, row) => {
+    acc[row.id] = JSON.parse(row.outputs) as string[];
+    return acc;
+  }, {} as Record<number, string[]>);
+}
+
+export async function getJobResult(
+  env: Env,
+  pool: PoolConfig,
+  jobId: number,
+  startIndex = 0,
+): Promise<JobResultDB> {
+  const sql = `
+      SELECT status,
+             json_group_array(je.value) as outputs
+      FROM ${JOB_DATA_TABLE_NAME},
+           json_each(${JOB_DATA_TABLE_NAME}.outputs) as je
+      WHERE ${JOB_DATA_TABLE_NAME}.id = ? 
+        AND je.key >= ?
+    `;
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, [jobId, startIndex]);
+  if (results.length === 0 || results[0].results.length === 0) {
+    return {
+      outputs: [],
+      status: 0,
+    };
+  }
+  const row = results[0].results[0];
+  return {
+    outputs: JSON.parse(row.outputs || '[]') as string[],
+    status: row.status,
+  };
+}
+
+export async function queryPoolStats(env: Env, pool: PoolConfig): Promise<Record<number, number>> {
+  const sql = `
+      SELECT status, COUNT(*) FROM ${JOB_DATA_TABLE_NAME} GROUP BY status
+    `;
+  const results: QueryResult[] = await query(env, pool.databaseId, sql, []);
+  const rows = results[0].results;
+  return rows.reduce((acc, row) => {
+    acc[row.status] = row.count;
+    return acc;
+  }, {} as Record<number, number>);
+}
+
+export async function deleteJob(env: Env, pool: PoolConfig, jobId: number) {
+  const sql = `
+      DELETE FROM ${JOB_DATA_TABLE_NAME} WHERE id = ?
+    `;
+  await query(env, pool.databaseId, sql, [jobId]);
+}
+
+export async function getPoolStats(
+  env: Env,
+  pools: PoolConfig[],
+): Promise<Record<number, Record<number, number>>> {
+  const stats = await Promise.all(
+    pools.map(async pool => {
+      return {
+        [pool.id]: await queryPoolStats(env, pool),
+      };
+    }),
+  );
+
+  return stats.reduce((acc, stat) => {
+    Object.keys(stat).forEach(poolId => {
+      acc[parseInt(poolId)] = stat[parseInt(poolId)];
+    });
+    return acc;
+  }, {} as Record<number, Record<number, number>>);
+}
+
+export async function cleanUpPool(env: Env, poolId: number) {
+  const pool = await getPool(env, poolId);
+  if (!pool) {
+    throw new GatewayServiceError(404, 'Pool not found');
+  }
+  const now = Math.floor(Date.now() / 1000);
+
+  // Delete expired jobs
+  const deleteFinishedJobsSql = `
+      DELETE FROM ${JOB_DATA_TABLE_NAME} 
+      WHERE expiredAt < ? AND status <> ?
+    `;
+  await query(env, pool.databaseId, deleteFinishedJobsSql, [now, JobStatus.ASSIGNED]);
+
+  // Reset hanging jobs
+  const resetExpiredJobsSql = `
+        UPDATE ${JOB_DATA_TABLE_NAME}
+        SET status = ?, assigner = ?, assignedAt = ?, updatedAt = ?
+        WHERE status = ? AND assignedAt < ? AND expiredAt > ?
+        RETURNING id, expiredAt
+    `;
+  const redis = Redis.fromEnv(env);
+  const results2: QueryResult[] = await query(env, pool.databaseId, resetExpiredJobsSql, [
+    JobStatus.PENDING,
+    null,
+    0,
+    now,
+    JobStatus.ASSIGNED,
+    now - MAX_JOB_PROCESSING_TIME,
+    now,
+  ]);
+  const rows = results2[0].results;
+  if (rows.length > 0) {
+    const values = rows.map(row => JSON.stringify(row));
+    await redis.lpush(jobQueuekey(pool.id), ...values);
+  }
+
+  // update pool cleanedAt
+  await env.DB.prepare('UPDATE pools SET cleanedAt = ? WHERE id = ?').bind(now, poolId).run();
+}
+
+export async function abortJob(env: Env, pool: PoolConfig, jobId: number) {
+  const now = Math.floor(Date.now() / 1000);
+  const sql = `
+      UPDATE ${JOB_DATA_TABLE_NAME}
+      SET status = ?, updatedAt = ?
+      WHERE id = ? AND status = ?
+    `;
+  await query(env, pool.databaseId, sql, [JobStatus.ABORTED, now, jobId, JobStatus.ASSIGNED]);
+}
