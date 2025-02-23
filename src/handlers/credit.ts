@@ -1,7 +1,7 @@
 import { OpenAPIRoute } from 'chanfana';
 import { GatewayServiceContext, GatewayServiceError } from '../types';
 import { z } from 'zod';
-import { deposit, getBalance, initUser } from '../db/credit';
+import { deposit, getBalance, initUser, updateCredits } from '../db/credit';
 
 const MIZU_ADMIN_USER = 'admin.mizu';
 
@@ -97,5 +97,47 @@ export class InitUser extends OpenAPIRoute {
     const user = c.get('userId');
     await initUser(c.env, user);
     return c.json({ message: 'ok' });
+  }
+}
+
+export class UpdateClaimed extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              claimedCount: z.number().int(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: 'Success',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string(),
+              data: z.object({
+                deposit: z.number().int(),
+                earnings: z.number().int(),
+                pendingCost: z.number().int(),
+                finalizedCost: z.number().int(),
+              }),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const user = c.get('userId');
+    await updateCredits(c.env, user, data.body.claimedCount);
+    const balance = await getBalance(c.env, user);
+    return c.json({ message: 'ok', data: balance });
   }
 }

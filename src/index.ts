@@ -5,7 +5,7 @@ import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
 import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware, serviceApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
-import { Deposit, GetBalance, InitUser } from './handlers/credit';
+import { Deposit, GetBalance, InitUser, UpdateClaimed } from './handlers/credit';
 import {
   TakeJob,
   FinishJob,
@@ -78,6 +78,7 @@ app.use('/user/balance', jwtAuthMiddleware);
 app.use('/api_key/new', jwtAuthMiddleware);
 app.use('/api_key/delete/:id', jwtAuthMiddleware);
 app.use('/api_key/list', jwtAuthMiddleware);
+app.use('/updateClaimed', jwtAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
@@ -132,6 +133,7 @@ openapi.get('/user/balance', GetBalance);
 openapi.post('/api_key/new', CreateApiKey);
 openapi.post('/api_key/delete', DeleteApiKey);
 openapi.get('/api_key/list', ListApiKeys);
+openapi.post('/updateClaimed', UpdateClaimed);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));

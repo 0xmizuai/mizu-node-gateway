@@ -162,3 +162,15 @@ export async function initUser(env: Env, user: string) {
     throw new GatewayServiceError(500, 'Failed to insert user');
   }
 }
+
+export async function updateCredits(env: Env, user: string, amount: number): Promise<void> {
+  const stmt = env.DB.prepare(
+    'INSERT INTO user (user, deposit) VALUES (?, ?) ' +
+      'ON CONFLICT(user) DO UPDATE SET deposit = deposit + ?',
+  );
+
+  const result = await stmt.bind(user, amount, amount).run();
+  if (!result.success) {
+    throw new GatewayServiceError(500, 'Failed to update user credits');
+  }
+}

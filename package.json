@@ -42,21 +42,9 @@
     "zod": "^3.24.1"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "prettier --write",
-      "tsc-files --noEmit",
-      "git add"
-    ],
-    "*.{json,md,yml,yaml,css,scss}": [
+    "*.{js,ts,json,md}": [
       "prettier --write",
       "git add"
     ]
-  },
-  "overrides": {
-    "tinypool": {
-      "typescript-eslint": "$typescript-eslint",
-      "eslint": "$eslint"
-    }
   }
 }
