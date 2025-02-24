@@ -67,7 +67,13 @@ export async function scheduleCleanup(env: Env, poolId: number): Promise<string>
 export async function getTotalPoolCount(env: Env): Promise<number> {
   const stmt = env.DB.prepare('SELECT COUNT(*) FROM pools');
   const result = await stmt.first();
-  return Number(result?.count);
+  return Number(result?.['COUNT(*)']);
+}
+
+export async function getUserPoolCount(env: Env, userId: string): Promise<number> {
+  const stmt = env.DB.prepare('SELECT COUNT(*) FROM pools WHERE owner = ?');
+  const result = await stmt.bind(userId).first();
+  return Number(result?.['COUNT(*)']);
 }
 
 export async function getPools(env: Env, page: number, pageSize: number): Promise<PoolConfig[]> {
@@ -84,9 +90,14 @@ export async function getPoolsByIds(env: Env, poolIds: number[]): Promise<PoolCo
   return result.results.map(toPoolConfig);
 }
 
-export async function getUserPools(env: Env, userId: string): Promise<PoolConfig[]> {
-  const stmt = env.DB.prepare('SELECT * FROM pools WHERE owner = ?');
-  const result = await stmt.bind(userId).all();
+export async function getUserPools(
+  env: Env,
+  userId: string,
+  page: number,
+  pageSize: number,
+): Promise<PoolConfig[]> {
+  const stmt = env.DB.prepare('SELECT * FROM pools WHERE owner = ? LIMIT ? OFFSET ?');
+  const result = await stmt.bind(userId, pageSize, (page - 1) * pageSize).all();
   return result.results.map(toPoolConfig);
 }
 

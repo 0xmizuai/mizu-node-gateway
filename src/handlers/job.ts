@@ -13,6 +13,7 @@ import {
 } from '../db/job_cache';
 import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
+import { getPoolWorkerByWorkerId } from '../db/pool_manage';
 
 const DEFAULT_TIMEOUT_MS = 600000;
 const MAX_JOB_TTL = 3600 * 24 * 3; // 3 days
@@ -52,6 +53,10 @@ export class TakeJob extends OpenAPIRoute {
     const data = await this.getValidatedData<typeof this.schema>();
     const user = c.get('userId');
     const pool = await getPool(c.env, data.query.poolId);
+    const currentPoolWorker = await getPoolWorkerByWorkerId(c.env, pool.id, user);
+    if (currentPoolWorker?.status !== 1) {
+      throw new GatewayServiceError(400, 'You have not been approved to work for this pool');
+    }
     const job = await takeJob(c.env, pool, user);
     return c.json({
       message: 'ok',

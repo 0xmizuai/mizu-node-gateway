@@ -1,29 +1,36 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-import { GatewayServiceError } from './types';
 import { fromHono } from 'chanfana';
 import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware, serviceApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
 import { Deposit, GetBalance, InitUser, UpdateClaimed } from './handlers/credit';
 import {
-  TakeJob,
-  FinishJob,
-  PublishInferenceJobs,
-  GetJobResults,
   ChatCompletions,
+  FinishJob,
   FinishJobStream,
+  GetJobResults,
+  PublishInferenceJobs,
+  TakeJob,
 } from './handlers/job';
 import {
-  GetPoolStats,
-  CreatePool,
-  GetPools,
-  GetPool,
-  UpdatePool,
-  SettlePoolRewards,
-  GetUserPools,
   CleanUpPool,
+  CreatePool,
+  GetPool,
+  GetPools,
+  GetPoolStats,
+  GetUserPools,
+  SettlePoolRewards,
+  UpdatePool,
 } from './handlers/pool';
+import {
+  ApplyPoolWorker,
+  GetPoolWorkers,
+  GetPoolWorkerStatus,
+  GetWorkerCounts,
+  ManagePoolWorker,
+} from './handlers/pool_manage';
+import { GatewayServiceError } from './types';
 
 const app = new Hono<{
   Bindings: {
@@ -66,7 +73,6 @@ app.use('/v1/chat/completions', jwtOrApiKeyAuthMiddleware);
 app.use('/pool_stats', jwtAuthMiddleware);
 app.use('/new_pool', jwtAuthMiddleware);
 app.use('/user_pools', jwtAuthMiddleware);
-app.use('/pool/:id', jwtAuthMiddleware);
 app.use('/update_pool/:id', jwtAuthMiddleware);
 app.use('/settle_pool', jwtAuthMiddleware);
 app.use('/cleanup_pool/:id', serviceApiKeyAuthMiddleware);
@@ -79,6 +85,11 @@ app.use('/api_key/new', jwtAuthMiddleware);
 app.use('/api_key/delete/:id', jwtAuthMiddleware);
 app.use('/api_key/list', jwtAuthMiddleware);
 app.use('/updateClaimed', jwtAuthMiddleware);
+
+app.use('/pool_manage/workers', jwtAuthMiddleware);
+app.use('/pool_manage/worker_status', jwtAuthMiddleware);
+app.use('/pool_manage/apply_worker', jwtAuthMiddleware);
+app.use('/pool_manage/manage_worker', jwtAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
@@ -134,6 +145,12 @@ openapi.post('/api_key/new', CreateApiKey);
 openapi.post('/api_key/delete', DeleteApiKey);
 openapi.get('/api_key/list', ListApiKeys);
 openapi.post('/updateClaimed', UpdateClaimed);
+
+openapi.get('/pool_manage/workers', GetPoolWorkers);
+openapi.get('/pool_manage/worker_status', GetPoolWorkerStatus);
+openapi.post('/pool_manage/apply_worker', ApplyPoolWorker);
+openapi.post('/pool_manage/manage_worker', ManagePoolWorker);
+openapi.get('/pool_manage/worker_counts', GetWorkerCounts);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));

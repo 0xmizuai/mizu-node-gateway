@@ -48,6 +48,7 @@ export type GatewayServiceContext = Context<{
   };
   Variables: {
     userId: string;
+    userKey: string;
   };
 }>;
 
@@ -137,4 +138,17 @@ export interface JobResult {
 export interface JobResultDB {
   outputs: string[];
   status: number;
+}
+
+// 0: pending, 1: approved, 2: rejected, 3: removed
+export type PoolWorkerStatus = 0 | 1 | 2 | 3;
+
+export interface PoolWorker {
+  id: number;
+  poolId: number;
+  workerId: string;
+  workerKey: string;
+  status: PoolWorkerStatus;
+  createdAt: number;
+  updatedAt: number;
 }

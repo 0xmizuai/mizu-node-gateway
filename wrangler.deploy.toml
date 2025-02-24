@@ -1,0 +1,16 @@
+name = "mizu_node_gateway"
+main = "src/index.ts"
+compatibility_date = "2023-12-18"
+
+[vars]
+JWT_PUB_KEY = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA1KAfS4LnbvDQdfaXmIJF78W3UJyR0uN6RAvCuorTfdQ=\n-----END PUBLIC KEY-----"
+CF_ACCOUNT_ID = "04d712a751d8a17e3f7c8fd491b3c801"
+INTERNAL_SERVICE_API_KEY = "gw8eerice1yx227ds3w1w5qotkymdsqu"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mizu-token-usage"
+database_id = "8996e54a-155d-43d8-bb8f-8a4466101e1b"
+
+[observability.logs]
+enabled = true

@@ -24,8 +24,9 @@ export async function jwtOrApiKeyAuthMiddleware(c: GatewayServiceContext, next: 
       c.set('userId', userId);
       await next();
     } else {
-      const userId = await verifyJWT(token, c.env.JWT_PUB_KEY);
+      const { userId, userKey } = await verifyJWT(token, c.env.JWT_PUB_KEY);
       c.set('userId', userId);
+      c.set('userKey', userKey);
       await next();
     }
   } catch (error) {
@@ -37,8 +38,9 @@ export async function jwtOrApiKeyAuthMiddleware(c: GatewayServiceContext, next: 
 export async function jwtAuthMiddleware(c: GatewayServiceContext, next: Next) {
   try {
     const token = getBearer(c);
-    const userId = await verifyJWT(token, c.env.JWT_PUB_KEY);
+    const { userId, userKey } = await verifyJWT(token, c.env.JWT_PUB_KEY);
     c.set('userId', userId);
+    c.set('userKey', userKey);
     await next();
   } catch (error) {
     return c.text('Unauthorized', 401);
@@ -65,13 +67,16 @@ export async function apiKeyAuthMiddleware(c: GatewayServiceContext, next: Next)
 }
 
 // JWT verification helper
-async function verifyJWT(token: string, publicKey: string): Promise<string> {
+async function verifyJWT(
+  token: string,
+  publicKey: string,
+): Promise<{ userId: string; userKey: string }> {
   try {
     const publicKeyObj = await jose.importSPKI(publicKey, 'EdDSA');
     const { payload } = await jose.jwtVerify(token, publicKeyObj);
     const subject = (payload as jose.JWTPayload).sub as string;
     const parsedSubject = JSON.parse(subject);
-    return parsedSubject.userId;
+    return { userId: parsedSubject.userId, userKey: parsedSubject.userKey };
   } catch (error) {
     throw new Error('Invalid token');
   }

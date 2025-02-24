@@ -8,6 +8,7 @@ import {
   getUserPools,
   getPoolsByIds,
   getTotalPoolCount,
+  getUserPoolCount,
 } from '../db/pool';
 import { GatewayServiceContext, GatewayServiceError, PoolStatus } from '../types';
 import { settlePoolRewards } from '../db/credit';
@@ -77,6 +78,12 @@ export class GetPoolStats extends OpenAPIRoute {
 
 export class GetUserPools extends OpenAPIRoute {
   schema = {
+    request: {
+      query: z.object({
+        pageSize: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.number().int().min(0).default(1).optional(),
+      }),
+    },
     responses: {
       '200': {
         description: '',
@@ -84,6 +91,7 @@ export class GetUserPools extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               data: z.array(poolSchema),
+              totalPools: z.number().int(),
             }),
           },
         },
@@ -93,9 +101,14 @@ export class GetUserPools extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const userId = c.get('userId');
-    const pools = await getUserPools(c.env, userId);
+    const data = await this.getValidatedData<typeof this.schema>();
+    const pageSize = data.query.pageSize ?? 50;
+    const page = data.query.page ?? 1;
+    const totalPools = await getUserPoolCount(c.env, userId);
+    const pools = await getUserPools(c.env, userId, page, pageSize);
     return c.json({
       data: pools,
+      totalPools,
     });
   }
 }
@@ -272,6 +285,8 @@ export class GetPools extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               data: z.array(poolSchema),
+              totalPages: z.number().int(),
+              totalPools: z.number().int(),
             }),
           },
         },
