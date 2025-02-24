@@ -1,19 +1,23 @@
 import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
-import { getPool } from '../db/pool';
-import { settleJobRewards, getBalance, lockSpending } from '../db/credit';
+import { getBalance, lockSpending, settleJobRewards } from '../db/credit';
 import {
-  insertJobs,
+  abortJob,
+  getJob,
   getJobResult,
   getJobResultsMap,
-  takeJob,
+  insertJobs,
   submitJobOutputs,
-  getJob,
-  abortJob,
+  takeJob,
 } from '../db/job_cache';
+import { getPool } from '../db/pool';
+import {
+  getPoolUserByUserId,
+  getPoolWorkerByWorkerId,
+  increasePoolWorkerAssignedTasks,
+} from '../db/pool_manage';
 import { GatewayServiceContext, GatewayServiceError, JobStatus, PoolConfig } from '../types';
 import { estimateCost } from '../utils';
-import { getPoolWorkerByWorkerId } from '../db/pool_manage';
 
 const DEFAULT_TIMEOUT_MS = 600000;
 const MAX_JOB_TTL = 3600 * 24 * 3; // 3 days
@@ -54,10 +58,17 @@ export class TakeJob extends OpenAPIRoute {
     const user = c.get('userId');
     const pool = await getPool(c.env, data.query.poolId);
     const currentPoolWorker = await getPoolWorkerByWorkerId(c.env, pool.id, user);
-    if (currentPoolWorker?.status !== 1) {
-      throw new GatewayServiceError(400, 'You have not been approved to work for this pool');
+    if (pool.isPublic === 0) {
+      if (currentPoolWorker?.status !== 1) {
+        throw new GatewayServiceError(400, 'You have not been approved to work for this pool');
+      }
     }
+
     const job = await takeJob(c.env, pool, user);
+    // Increase worker assigned tasks count
+    if (job && currentPoolWorker) {
+      await increasePoolWorkerAssignedTasks(c.env, currentPoolWorker.id);
+    }
     return c.json({
       message: 'ok',
       data: { job },
@@ -426,6 +437,14 @@ export class ChatCompletions extends OpenAPIRoute {
     if (!pool) {
       throw new GatewayServiceError(404, 'Pool not found');
     }
+    // Check if user is approved to use this pool
+    if (pool.isPublic === 0) {
+      const poolUser = await getPoolUserByUserId(c.env, pool.id, c.get('userId'));
+      if (!poolUser || poolUser.status !== 1) {
+        throw new GatewayServiceError(403, 'You are not approved to use this pool');
+      }
+    }
+
     const jobIds = await handleJobRequest(
       c,
       pool,

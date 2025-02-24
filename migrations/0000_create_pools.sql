@@ -14,6 +14,8 @@ CREATE TABLE pools (
     earnings BIGINT NOT NULL DEFAULT 0,
     settledEarnings BIGINT NOT NULL DEFAULT 0,
     lastSettledDay INTEGER NOT NULL DEFAULT 0,
+    -- 0: private pool, 1: public pool
+    isPublic INTEGER NOT NULL DEFAULT 0,
     databaseId TEXT NOT NULL,
     status INTEGER NOT NULL DEFAULT 0,
     scheduleId TEXT NOT NULL DEFAULT '',

@@ -88,6 +88,7 @@ export interface PoolConfigInput {
   contextLength: number;
   maxOutput: number;
   feeRatio: number;
+  isPublic: number;
 }
 
 export interface PoolConfig extends PoolConfigInput {
@@ -98,6 +99,7 @@ export interface PoolConfig extends PoolConfigInput {
   earnings: number;
   settledEarnings: number;
   lastSettledDay: number;
+  isPublic: number;
   createdAt?: number;
   updatedAt?: number;
   inputTokens: number;
@@ -142,6 +144,8 @@ export interface JobResultDB {
 
 // 0: pending, 1: approved, 2: rejected, 3: removed
 export type PoolWorkerStatus = 0 | 1 | 2 | 3;
+// 0: pending, 1: approved, 2: rejected, 3: removed
+export type PoolUserStatus = 0 | 1 | 2 | 3;
 
 export interface PoolWorker {
   id: number;
@@ -149,6 +153,19 @@ export interface PoolWorker {
   workerId: string;
   workerKey: string;
   status: PoolWorkerStatus;
+  assignedTasks: number;
+  finishedTasks: number;
+  earnings: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PoolUser {
+  id: number;
+  poolId: number;
+  userId: string;
+  userKey: string;
+  status: PoolUserStatus;
   createdAt: number;
   updatedAt: number;
 }

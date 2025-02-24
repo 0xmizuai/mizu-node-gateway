@@ -24,6 +24,7 @@ const poolInputSchema = z.object({
   contextLength: z.number().int(),
   maxOutput: z.number().int(),
   feeRatio: z.number().int().min(0).max(100),
+  isPublic: z.number().int().min(0).max(1),
 });
 
 const poolSchema = poolInputSchema.extend({
@@ -33,6 +34,7 @@ const poolSchema = poolInputSchema.extend({
   earnings: z.number().int(),
   settledEarnings: z.number().int(),
   settledAt: z.number().int(),
+  isPublic: z.number().int().min(0).max(1),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
 });

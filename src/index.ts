@@ -24,11 +24,17 @@ import {
   UpdatePool,
 } from './handlers/pool';
 import {
+  ApplyPoolUser,
   ApplyPoolWorker,
+  GetPoolUsers,
+  GetPoolUserStatus,
   GetPoolWorkers,
   GetPoolWorkerStatus,
+  GetUserCounts,
   GetWorkerCounts,
+  ManagePoolUser,
   ManagePoolWorker,
+  WorkerStart,
 } from './handlers/pool_manage';
 import { GatewayServiceError } from './types';
 
@@ -86,11 +92,17 @@ app.use('/api_key/delete/:id', jwtAuthMiddleware);
 app.use('/api_key/list', jwtAuthMiddleware);
 app.use('/updateClaimed', jwtAuthMiddleware);
 
+app.use('/worker_start', jwtAuthMiddleware);
+
 app.use('/pool_manage/workers', jwtAuthMiddleware);
 app.use('/pool_manage/worker_status', jwtAuthMiddleware);
 app.use('/pool_manage/apply_worker', jwtAuthMiddleware);
 app.use('/pool_manage/manage_worker', jwtAuthMiddleware);
 
+app.use('/pool_manage/users', jwtAuthMiddleware);
+app.use('/pool_manage/user_status', jwtAuthMiddleware);
+app.use('/pool_manage/apply_user', jwtAuthMiddleware);
+app.use('/pool_manage/manage_user', jwtAuthMiddleware);
 // Error handling middleware
 app.onError(async (err, c) => {
   if (err instanceof GatewayServiceError) {
@@ -146,11 +158,20 @@ openapi.post('/api_key/delete', DeleteApiKey);
 openapi.get('/api_key/list', ListApiKeys);
 openapi.post('/updateClaimed', UpdateClaimed);
 
+openapi.post('/worker_start', WorkerStart);
+
+openapi.get('/pool_manage/worker_status', GetPoolWorkerStatus);
 openapi.get('/pool_manage/workers', GetPoolWorkers);
 openapi.get('/pool_manage/worker_status', GetPoolWorkerStatus);
 openapi.post('/pool_manage/apply_worker', ApplyPoolWorker);
 openapi.post('/pool_manage/manage_worker', ManagePoolWorker);
 openapi.get('/pool_manage/worker_counts', GetWorkerCounts);
+
+openapi.get('/pool_manage/users', GetPoolUsers);
+openapi.get('/pool_manage/user_status', GetPoolUserStatus);
+openapi.post('/pool_manage/apply_user', ApplyPoolUser);
+openapi.post('/pool_manage/manage_user', ManagePoolUser);
+openapi.get('/pool_manage/user_counts', GetUserCounts);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));

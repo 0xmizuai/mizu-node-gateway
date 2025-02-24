@@ -39,6 +39,7 @@ function toPoolConfig(row: any): PoolConfig {
     settledEarnings: Number(row.settledEarnings),
     lastSettledDay: Number(row.lastSettledDay),
     feeRatio: Number(row.feeRatio),
+    isPublic: Number(row.isPublic),
     createdAt: Number(row.createdAt),
     updatedAt: Number(row.updatedAt),
     cleanedAt: Number(row.cleanedAt),
@@ -124,8 +125,8 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   const database_id = await createPoolCacheDB(env, pool.name);
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt, databaseId) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      'contextLength, maxOutput, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
+      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
   );
   const result = await stmt
     .bind(
@@ -138,6 +139,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
       now,
       now,
       database_id,
+      pool.isPublic,
     )
     .run()
     .catch((err: any) => {

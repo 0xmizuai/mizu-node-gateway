@@ -7,6 +7,9 @@ CREATE TABLE pool_workers (
     workerKey TEXT NOT NULL,
     --  0: pending, 1: approved, 2: rejected, 3: removed
     status INTEGER NOT NULL,
+    assignedTasks INTEGER NOT NULL DEFAULT 0,
+    finishedTasks INTEGER NOT NULL DEFAULT 0,
+    earnings REAL NOT NULL DEFAULT 0,
     createdAt INTEGER DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER DEFAULT (strftime('%s', 'now'))
 );
