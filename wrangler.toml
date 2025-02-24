@@ -2,14 +2,10 @@ name = "mizu_node_gateway"
 main = "src/index.ts"
 compatibility_date = "2023-12-18"
 
-[vars]
-JWT_PUB_KEY = "this is the internal service key"
-CF_ACCOUNT_ID = "this is the cloudflare account id"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "mizu-token-usage"
-database_id = "local-db"
+database_id = "8996e54a-155d-43d8-bb8f-8a4466101e1b"
 
 [observability.logs]
 enabled = true

@@ -10,7 +10,8 @@
 /poetry.toml
 
 # Cloudflare Wrangler configuration
-wrangler.*toml
+wrangler.local.toml
+wrangler.staging.toml
 .wrangler/
 
 # Other common files to ignore
