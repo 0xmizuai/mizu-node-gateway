@@ -125,7 +125,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   const database_id = await createPoolCacheDB(env, pool.name);
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
+      'contextLength, maxOutput,feeRatio, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
       '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
   );
   const result = await stmt
@@ -136,6 +136,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
       prices,
       pool.contextLength,
       pool.maxOutput,
+      pool.feeRatio,
       now,
       now,
       database_id,
