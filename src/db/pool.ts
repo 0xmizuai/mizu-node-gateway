@@ -57,7 +57,7 @@ export async function scheduleCleanup(env: Env, poolId: number): Promise<string>
     headers: {
       'X-API-KEY': env.INTERNAL_SERVICE_API_KEY,
     },
-    cron: '*/5 * * * *', // every 5 minutes
+    cron: '0 0 * * *', // every day at midnight
   });
   await env.DB.prepare('UPDATE pools SET scheduleId = ? WHERE id = ?')
     .bind(scheduleId, poolId)

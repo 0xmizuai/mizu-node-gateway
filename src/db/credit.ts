@@ -165,8 +165,9 @@ export async function initUser(env: Env, user: string) {
 
 export async function updateCredits(env: Env, user: string, amount: number): Promise<void> {
   const stmt = env.DB.prepare(
-    'INSERT INTO user (user, deposit) VALUES (?, ?) ' +
-      'ON CONFLICT(user) DO UPDATE SET deposit = deposit + ?',
+    // 修改 'user' 为 'users'
+    'INSERT INTO users (id, deposit) VALUES (?, ?) ' +
+      'ON CONFLICT(id) DO UPDATE SET deposit = deposit + ?',
   );
 
   const result = await stmt.bind(user, amount, amount).run();
