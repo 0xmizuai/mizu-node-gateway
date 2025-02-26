@@ -126,7 +126,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
       'contextLength, maxOutput,feeRatio, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?) RETURNING id',
   );
   const result = await stmt
     .bind(
