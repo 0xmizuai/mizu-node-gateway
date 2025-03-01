@@ -132,6 +132,8 @@ openapi.registry.registerComponent('securitySchemes', 'BearerAuth', {
 });
 
 // Define routes
+// openapi.post('/clean_database', CleanDatabase);
+
 openapi.get('/take_job', TakeJob);
 openapi.post('/finish_job_stream', FinishJobStream);
 openapi.post('/finish_job', FinishJob);

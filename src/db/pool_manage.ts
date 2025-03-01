@@ -163,6 +163,18 @@ export async function createPoolWorkerForPublicPool(
   }
 }
 
+export async function bindPoolWorkerForOwner(
+  env: Env,
+  poolId: number,
+  userId: string,
+  userKey: string,
+): Promise<void> {
+  const insertStmt = env.DB.prepare(
+    'INSERT INTO pool_workers (poolId, workerId, workerKey, status) VALUES (?, ?, ?, ?)',
+  );
+  await insertStmt.bind(poolId, userId, userKey, 1).run();
+}
+
 export async function applyPoolWorker(
   env: Env,
   poolId: number,

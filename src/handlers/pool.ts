@@ -13,6 +13,7 @@ import {
 import { GatewayServiceContext, GatewayServiceError, PoolStatus } from '../types';
 import { settlePoolRewards } from '../db/credit';
 import { cleanUpPool, getPoolStats } from '../db/job_cache';
+import { bindPoolWorkerForOwner } from '../db/pool_manage';
 
 const poolInputSchema = z.object({
   name: z.string(),
@@ -146,6 +147,8 @@ export class CreatePool extends OpenAPIRoute {
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
     const pool = await createPool(c.env, c.get('userId'), data.body);
+    console.log('pool', pool);
+    await bindPoolWorkerForOwner(c.env, pool, c.get('userId'), c.get('userKey'));
     return c.json({ data: { id: pool } });
   }
 }
