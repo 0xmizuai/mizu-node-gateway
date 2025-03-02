@@ -56,6 +56,7 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
         .select()
         .from(userBalance)
         // .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
+        .where(eq(userBalance.userKey, userKey))
         .catch(err => {
           console.error('Email balance query error:', err);
           return [];
