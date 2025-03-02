@@ -2,6 +2,7 @@ import { OpenAPIRoute } from 'chanfana';
 import { z } from 'zod';
 import { GatewayServiceContext } from '../types';
 import { calculateUserCredits, updateUserClaimedStatus } from '../db/balance_points';
+import { updateCredits } from '../db/credit';
 
 export class CalculateCredits extends OpenAPIRoute {
   schema = {
@@ -96,6 +97,7 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
             schema: z.object({
               userKey: z.string(),
               userId: z.string(),
+              claimedCount: z.number().int(),
             }),
           },
         },
@@ -108,7 +110,12 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               code: z.number(),
-              data: z.boolean(),
+              data: z.object({
+                deposit: z.number().int(),
+                earnings: z.number().int(),
+                pendingCost: z.number().int(),
+                finalizedCost: z.number().int(),
+              }),
             }),
           },
         },
@@ -118,8 +125,12 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const { userKey, userId } = data.body;
+    const { userKey, userId, claimedCount } = data.body;
 
+    // 1. 先更新积分数据
+    await updateCredits(c.env, userId, claimedCount);
+
+    // 2. 再标记状态为已计算
     await updateUserClaimedStatus(c.env, userKey, userId);
 
     return c.json({

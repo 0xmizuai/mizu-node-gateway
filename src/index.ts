@@ -91,7 +91,6 @@ app.use('/user/balance', jwtAuthMiddleware);
 app.use('/api_key/new', jwtAuthMiddleware);
 app.use('/api_key/delete/:id', jwtAuthMiddleware);
 app.use('/api_key/list', jwtAuthMiddleware);
-app.use('/updateClaimed', jwtAuthMiddleware);
 
 app.use('/worker_start', jwtAuthMiddleware);
 
@@ -162,7 +161,6 @@ openapi.get('/user/balance', GetBalance);
 openapi.post('/api_key/new', CreateApiKey);
 openapi.post('/api_key/delete', DeleteApiKey);
 openapi.get('/api_key/list', ListApiKeys);
-openapi.post('/updateClaimed', UpdateClaimed);
 
 openapi.post('/worker_start', WorkerStart);
 
