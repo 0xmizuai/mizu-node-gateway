@@ -31,7 +31,7 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
         userId: tgUsers.userId,
       })
       .from(tgUsers)
-      .where(eq(tgUsers.userId, userId));
+      .where(eq(tgUsers.userId, 'JxtgyLPeFFP9cuJ4VjWr4hCk1Bf2'));
 
     console.log('TG user query result:', tgUserQuery);
 

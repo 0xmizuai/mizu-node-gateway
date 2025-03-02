@@ -4,12 +4,6 @@ import { GatewayServiceContext } from '../types';
 import { calculateUserCredits, updateUserClaimedStatus } from '../db/balance_points';
 import { updateCredits } from '../db/credit';
 
-interface BalanceItem {
-  is_calculate?: boolean;
-  claimed_point?: number;
-  token_balance?: number;
-}
-
 export class CalculateCredits extends OpenAPIRoute {
   schema = {
     request: {
