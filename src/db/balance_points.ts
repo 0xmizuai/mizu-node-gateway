@@ -64,21 +64,12 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
           console.error('Email balance query error:', err);
           return [];
         }),
-      await db
-        .select()
-        .from(userRewardPoints)
-        .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
+      await db.select().from(userRewardPoints).where(eq(userBalance.userKey, userKey)),
       tgUser?.tgId
-        ? await db
-            .select()
-            .from(userBalance)
-            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
+        ? await db.select().from(userBalance).where(eq(userBalance.userKey, tgUser.tgId))
         : Promise.resolve([]),
       tgUser?.tgId
-        ? await db
-            .select()
-            .from(userRewardPoints)
-            .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
+        ? await db.select().from(userRewardPoints).where(eq(userBalance.userKey, tgUser.tgId))
         : Promise.resolve([]),
     ]);
 
