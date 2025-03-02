@@ -38,7 +38,6 @@ export async function jwtOrApiKeyAuthMiddleware(c: GatewayServiceContext, next: 
 export async function jwtAuthMiddleware(c: GatewayServiceContext, next: Next) {
   try {
     const token = getBearer(c);
-    console.log(' token ===', token);
     const { userId, userKey } = await verifyJWT(token, c.env.JWT_PUB_KEY);
     c.set('userId', userId);
     c.set('userKey', userKey);

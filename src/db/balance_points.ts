@@ -10,114 +10,147 @@ export async function calculateUserCredits(
   userId: string,
   isNew = false,
 ) {
+  if (!env?.DB || !userKey || !userId) {
+    console.error('Invalid parameters:', { env: !!env?.DB, userKey, userId });
+    throw new Error('Missing required parameters');
+  }
+
   const db = createDb(env.DB);
 
-  // 查询 TG 用户
-  const tgUser = await db.query.tgUsers.findFirst({
-    where: eq(tgUsers.userId, userId),
-    columns: { tgId: true },
-  });
+  console.log('calculateUserCredits parameters:', { userKey, userId, isNew });
 
-  // 构建查询条件
-  const balanceCondition = and(
-    or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
-    eq(userBalance.tokenAddress, env.TOKEN_ADDRESS),
-  );
+  try {
+    const tgUserQuery = db
+      .select({
+        tgId: tgUsers.tgId,
+        userId: tgUsers.userId,
+      })
+      .from(tgUsers)
+      .where(eq(tgUsers.userId, userId));
 
-  const pointCondition = or(
-    eq(userRewardPoints.isCalculate, 0),
-    isNull(userRewardPoints.isCalculate),
-  );
+    const tgUser = (await tgUserQuery)[0];
+    console.log('Drizzle result:', tgUser);
 
-  // 并行查询所有数据
-  const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
-    db
-      .select()
-      .from(userBalance)
-      .where(and(balanceCondition, eq(userBalance.userKey, userKey))),
-    db
-      .select()
-      .from(userRewardPoints)
-      .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
-    tgUser?.tgId
-      ? db
-          .select()
-          .from(userBalance)
-          .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
-      : Promise.resolve([]),
-    tgUser?.tgId
-      ? db
-          .select()
-          .from(userRewardPoints)
-          .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
-      : Promise.resolve([]),
-  ]);
+    // 构建查询条件，确保所有参数都有效
+    const balanceCondition = and(
+      or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
+      eq(userBalance.tokenAddress, env.TOKEN_ADDRESS || ''),
+    );
 
-  return {
-    emailBalance,
-    emailPoints,
-    tgBalance,
-    tgPoints,
-    isNew,
-  };
+    const pointCondition = or(
+      eq(userRewardPoints.isCalculate, 0),
+      isNull(userRewardPoints.isCalculate),
+    );
+
+    // 并行查询所有数据，添加错误处理
+    const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
+      db
+        .select()
+        .from(userBalance)
+        .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
+        .catch(err => {
+          console.error('Email balance query error:', err);
+          return [];
+        }),
+      db
+        .select()
+        .from(userRewardPoints)
+        .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
+      tgUser?.tgId
+        ? db
+            .select()
+            .from(userBalance)
+            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
+        : Promise.resolve([]),
+      tgUser?.tgId
+        ? db
+            .select()
+            .from(userRewardPoints)
+            .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      emailBalance: emailBalance || [],
+      emailPoints: emailPoints || [],
+      tgBalance: tgBalance || [],
+      tgPoints: tgPoints || [],
+      isNew,
+    };
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
+  }
 }
 
 export async function updateUserClaimedStatus(env: Env, userKey: string, userId: string) {
   const db = createDb(env.DB);
 
-  const tgUser = await db.query.tgUsers.findFirst({
-    where: eq(tgUsers.userId, userId),
-    columns: { tgId: true },
-  });
+  try {
+    // 直接使用原始 SQL 查询来调试
+    const rawResult = await env.DB.prepare('SELECT * FROM tg_users WHERE user_id = ?')
+      .bind(userId)
+      .all();
+    console.log('Raw SQL result:', rawResult);
 
-  // 更新状态
-  await Promise.all([
-    db
-      .update(userBalance)
-      .set({ isCalculate: 1 })
-      .where(
-        and(
-          eq(userBalance.userKey, userKey),
-          eq(userBalance.tokenAddress, env.TOKEN_ADDRESS),
-          or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
-        ),
-      ),
+    // 使用 drizzle 查询
+    const tgUserQuery = db
+      .select({
+        tgId: tgUsers.tgId,
+      })
+      .from(tgUsers)
+      .where(eq(tgUsers.userId, userId));
 
-    db
-      .update(userRewardPoints)
-      .set({ isCalculate: 1 })
-      .where(
-        and(
-          eq(userRewardPoints.userKey, userKey),
-          or(eq(userRewardPoints.isCalculate, 0), isNull(userRewardPoints.isCalculate)),
-        ),
-      ),
+    const tgUser = (await tgUserQuery)[0];
+    console.log('Drizzle query result:', tgUser);
 
-    tgUser?.tgId
-      ? db
-          .update(userBalance)
-          .set({ isCalculate: 1 })
-          .where(
-            and(
-              eq(userBalance.userKey, tgUser.tgId),
-              eq(userBalance.tokenAddress, env.TOKEN_ADDRESS),
-              or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
-            ),
-          )
-      : Promise.resolve(),
+    // 构建查询条件，确保所有参数都有效
+    const balanceCondition = and(
+      or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
+      eq(userBalance.tokenAddress, env.TOKEN_ADDRESS || ''),
+    );
 
-    tgUser?.tgId
-      ? db
-          .update(userRewardPoints)
-          .set({ isCalculate: 1 })
-          .where(
-            and(
-              eq(userRewardPoints.userKey, tgUser.tgId),
-              or(eq(userRewardPoints.isCalculate, 0), isNull(userRewardPoints.isCalculate)),
-            ),
-          )
-      : Promise.resolve(),
-  ]);
+    const pointCondition = or(
+      eq(userRewardPoints.isCalculate, 0),
+      isNull(userRewardPoints.isCalculate),
+    );
 
-  return true;
+    // 并行查询所有数据，添加错误处理
+    const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
+      db
+        .select()
+        .from(userBalance)
+        .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
+        .catch(err => {
+          console.error('Email balance query error:', err);
+          return [];
+        }),
+      db
+        .select()
+        .from(userRewardPoints)
+        .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
+      tgUser?.tgId
+        ? db
+            .select()
+            .from(userBalance)
+            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
+        : Promise.resolve([]),
+      tgUser?.tgId
+        ? db
+            .select()
+            .from(userRewardPoints)
+            .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      emailBalance: emailBalance || [],
+      emailPoints: emailPoints || [],
+      tgBalance: tgBalance || [],
+      tgPoints: tgPoints || [],
+    };
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
+  }
 }
