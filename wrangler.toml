@@ -10,4 +10,4 @@ database_id = "8996e54a-155d-43d8-bb8f-8a4466101e1b"
 [observability.logs]
 enabled = true
 [vars]
-TOKEN_ADDRESS = "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9"
+TOKEN_ADDRESS = "0x0C5eAB07a5E082ED5Dc14BAC7e9C706568C2905f"

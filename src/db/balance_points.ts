@@ -4,23 +4,28 @@ import { tgUsers } from '../schema/tgUser';
 import { userBalance } from '../schema/userBalance';
 import { userRewardPoints } from '../schema/userPoint';
 
-export async function calculateUserCredits(
-  env: Env,
-  userKey: string,
-  userId: string,
-  isNew = false,
-) {
+export async function calculateUserCredits(env: Env, userKey: string, userId: string) {
   if (!env?.DB || !userKey || !userId) {
     console.error('Invalid parameters:', { env: !!env?.DB, userKey, userId });
     throw new Error('Missing required parameters');
   }
 
-  const db = createDb(env.DB);
-
-  console.log('calculateUserCredits parameters:', { userKey, userId, isNew });
-
   try {
-    const tgUserQuery = db
+    // 测试数据库连接
+    console.log('Testing database connection...');
+    const testResult = await env.DB.prepare('SELECT 1').first();
+    console.log('Database connection test:', testResult);
+
+    const db = createDb(env.DB);
+
+    // 打印查询信息
+    console.log('Query params:', {
+      TOKEN_ADDRESS: env.TOKEN_ADDRESS,
+      userKey,
+      userId,
+    });
+
+    const tgUserQuery = await db
       .select({
         tgId: tgUsers.tgId,
         userId: tgUsers.userId,
@@ -28,7 +33,11 @@ export async function calculateUserCredits(
       .from(tgUsers)
       .where(eq(tgUsers.userId, userId));
 
-    const tgUser = (await tgUserQuery)[0];
+    console.log('TG user query result:', tgUserQuery);
+
+    const tgUser = tgUserQuery[0];
+
+    console.log('Drizzle query result:', tgUserQuery);
 
     // 构建查询条件，确保所有参数都有效
     const balanceCondition = and(

@@ -70,7 +70,7 @@ export class CalculateCredits extends OpenAPIRoute {
     }
 
     try {
-      const result = await calculateUserCredits(c.env, userKey, userId, isNew);
+      const result = await calculateUserCredits(c.env, userKey, userId);
 
       console.log('Calculate credits result:', result);
 
@@ -83,7 +83,13 @@ export class CalculateCredits extends OpenAPIRoute {
         return Math.floor(
           items.reduce((sum: number, item: any) => {
             if (!item?.is_calculate) {
-              const value = Number(item?.claimed_point || item?.token_balance) || 0;
+              // 处理不同类型的值
+              let value = 0;
+              if (item?.token_balance) {
+                value = Number(item.token_balance) / Math.pow(10, 18);
+              } else {
+                value = Number(item?.claimed_point) || 0;
+              }
               return sum + value * multiplier;
             }
             return sum;
