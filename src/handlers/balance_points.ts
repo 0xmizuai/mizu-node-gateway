@@ -146,12 +146,7 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               code: z.number(),
-              data: z.object({
-                deposit: z.number().int(),
-                earnings: z.number().int(),
-                pendingCost: z.number().int(),
-                finalizedCost: z.number().int(),
-              }),
+              data: z.boolean(),
             }),
           },
         },
