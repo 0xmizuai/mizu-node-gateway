@@ -95,8 +95,6 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
         content: {
           'application/json': {
             schema: z.object({
-              userKey: z.string(),
-              userId: z.string(),
               claimedCount: z.number().int(),
             }),
           },
@@ -125,7 +123,9 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const { userKey, userId, claimedCount } = data.body;
+    const { claimedCount } = data.body;
+    const userKey = c.get('userKey');
+    const userId = c.get('userId');
 
     // 1. 先更新积分数据
     await updateCredits(c.env, userId, claimedCount);
