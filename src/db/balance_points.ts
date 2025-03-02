@@ -35,7 +35,10 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
 
     console.log('TG user query result:', tgUserQuery);
 
-    const tgUser = tgUserQuery[0];
+    // const tgUser = tgUserQuery[0];
+    const tgUser = {
+      tgId: '7275460694',
+    };
 
     console.log('Drizzle query result:', tgUserQuery);
 
