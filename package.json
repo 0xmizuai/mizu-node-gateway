@@ -13,7 +13,10 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "pre-commit": "lint-staged",
     "prepare": "husky",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "qstash:list": "ts-node --project scripts/tsconfig.json scripts/qstash-schedule-manager.ts list",
+    "qstash:cancel": "ts-node --project scripts/tsconfig.json scripts/qstash-schedule-manager.ts cancel",
+    "qstash:schedule-cleanup": "ts-node --project scripts/tsconfig.json scripts/qstash-schedule-manager.ts schedule-cleanup"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.2",
@@ -22,12 +25,14 @@
     "@typescript-eslint/eslint-plugin": "^5.59.0",
     "@typescript-eslint/parser": "^5.59.0",
     "drizzle-kit": "^0.30.5",
+    "dotenv": "^16.4.7",
     "eslint": "^8.38.0",
     "eslint-config-prettier": "^8.10.0",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^9.1.7",
     "lint-staged": "^13.3.0",
     "prettier": "^2.8.8",
+    "ts-node": "^10.9.2",
     "tsc-files": "^1.1.4",
     "typescript": "^5.5.2",
     "vitest": "2.0.5",

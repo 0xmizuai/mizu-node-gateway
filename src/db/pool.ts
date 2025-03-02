@@ -57,7 +57,7 @@ export async function scheduleCleanup(env: Env, poolId: number): Promise<string>
     headers: {
       'X-API-KEY': env.INTERNAL_SERVICE_API_KEY,
     },
-    cron: '*/5 * * * *', // every 5 minutes
+    cron: '0 0 * * *', // every day at midnight
   });
   await env.DB.prepare('UPDATE pools SET scheduleId = ? WHERE id = ?')
     .bind(scheduleId, poolId)
@@ -125,8 +125,8 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
   const database_id = await createPoolCacheDB(env, pool.name);
   const stmt = env.DB.prepare(
     'INSERT INTO pools (name, model, owner, prices, ' +
-      'contextLength, maxOutput, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
-      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id',
+      'contextLength, maxOutput,feeRatio, createdAt, updatedAt, databaseId, isPublic) VALUES ' +
+      '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?) RETURNING id',
   );
   const result = await stmt
     .bind(
@@ -136,6 +136,7 @@ export async function createPool(env: Env, user: string, pool: PoolConfigInput):
       prices,
       pool.contextLength,
       pool.maxOutput,
+      pool.feeRatio,
       now,
       now,
       database_id,
