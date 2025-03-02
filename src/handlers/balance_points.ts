@@ -73,13 +73,6 @@ export class CalculateCredits extends OpenAPIRoute {
         throw new Error('Failed to calculate credits');
       }
 
-      return c.json({
-        code: 0,
-        data: {
-          ...result,
-        },
-      });
-
       const calculateCredits = (items: any[] = [], multiplier: number) => {
         return Math.floor(
           items.reduce((sum: number, item: any) => {
@@ -124,7 +117,7 @@ export class CalculateCredits extends OpenAPIRoute {
       return c.json(
         {
           code: 1,
-          message: 'Failed to calculate credits',
+          message: error || 'Failed to calculate credits',
           data: null,
         },
         500,
