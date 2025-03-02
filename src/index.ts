@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { fromHono } from 'chanfana';
 import { jwtAuthMiddleware, jwtOrApiKeyAuthMiddleware, serviceApiKeyAuthMiddleware } from './auth';
 import { CreateApiKey, DeleteApiKey, ListApiKeys } from './handlers/api_key';
-import { Deposit, GetBalance, InitUser } from './handlers/credit';
+import { Deposit, GetBalance, InitUser, UpdateClaimed } from './handlers/credit';
 import {
   ChatCompletions,
   FinishJob,
@@ -88,6 +88,7 @@ app.use('/cleanup_pool/:id', serviceApiKeyAuthMiddleware);
 app.use('/user/init', jwtAuthMiddleware);
 app.use('/user/deposit', jwtAuthMiddleware);
 app.use('/user/balance', jwtAuthMiddleware);
+app.use('/user/updateClaimed', jwtAuthMiddleware);
 
 app.use('/api_key/new', jwtAuthMiddleware);
 app.use('/api_key/delete/:id', jwtAuthMiddleware);
@@ -160,6 +161,7 @@ openapi.post('/cleanup_pool/:id', CleanUpPool);
 openapi.post('/user/init', InitUser);
 openapi.post('/user/deposit', Deposit);
 openapi.get('/user/balance', GetBalance);
+openapi.post('/user/updateClaimed', UpdateClaimed);
 
 openapi.post('/api_key/new', CreateApiKey);
 openapi.post('/api_key/delete', DeleteApiKey);
