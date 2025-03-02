@@ -55,7 +55,7 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
 
     // 并行查询所有数据，添加错误处理
     const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
-      db
+      await db
         .select()
         .from(userBalance)
         // .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
@@ -64,18 +64,18 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
           console.error('Email balance query error:', err);
           return [];
         }),
-      db
+      await db
         .select()
         .from(userRewardPoints)
         .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
       tgUser?.tgId
-        ? db
+        ? await db
             .select()
             .from(userBalance)
             .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
         : Promise.resolve([]),
       tgUser?.tgId
-        ? db
+        ? await db
             .select()
             .from(userRewardPoints)
             .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
