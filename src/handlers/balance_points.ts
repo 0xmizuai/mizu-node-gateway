@@ -27,7 +27,6 @@ export class CalculateCredits extends OpenAPIRoute {
               data: z.object({
                 totalCredits: z.number(),
                 details: z.object({
-                  balanceCredits: z.number(),
                   emailBalance: z.number(),
                   tgBalance: z.number(),
                   emailPoints: z.number(),
@@ -70,6 +69,13 @@ export class CalculateCredits extends OpenAPIRoute {
       [...(result.emailPoints || []), ...(result.tgPoints || [])],
       100,
     );
+
+    // 计算各项明细
+    const emailBalance = calculateCredits(result.emailBalance || [], 1000000);
+    const tgBalance = calculateCredits(result.tgBalance || [], 1000000);
+    const emailPoints = calculateCredits(result.emailPoints || [], 100);
+    const tgPoints = calculateCredits(result.tgPoints || [], 100);
+
     const totalCredits = Math.floor(pointCredits + balanceCredits + (result.isNew ? 1000000 : 0));
 
     return c.json({
@@ -77,11 +83,10 @@ export class CalculateCredits extends OpenAPIRoute {
       data: {
         totalCredits,
         details: {
-          balanceCredits,
-          emailBalance: Number(result.emailBalance?.[0]?.tokenBalance || 0) * 1000000,
-          tgBalance: Number(result.tgBalance?.[0]?.tokenBalance || 0) * 1000000,
-          emailPoints: Number(result.emailPoints?.[0]?.claimedPoint || 0) * 100,
-          tgPoints: Number(result.tgPoints?.[0]?.claimedPoint || 0) * 100,
+          emailBalance,
+          tgBalance,
+          emailPoints,
+          tgPoints,
         },
       },
     });
