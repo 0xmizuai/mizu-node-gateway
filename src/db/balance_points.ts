@@ -74,7 +74,6 @@ export async function calculateUserCredits(
       emailPoints: emailPoints || [],
       tgBalance: tgBalance || [],
       tgPoints: tgPoints || [],
-      isNew,
     };
   } catch (error) {
     console.error('Database query error:', error);
