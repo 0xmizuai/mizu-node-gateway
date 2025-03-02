@@ -12,8 +12,6 @@ export class CalculateCredits extends OpenAPIRoute {
           'application/json': {
             schema: z.object({
               isNew: z.boolean(),
-              userKey: z.string(),
-              userId: z.string(),
             }),
           },
         },
@@ -45,7 +43,9 @@ export class CalculateCredits extends OpenAPIRoute {
 
   async handle(c: GatewayServiceContext) {
     const data = await this.getValidatedData<typeof this.schema>();
-    const { isNew, userKey, userId } = data.body;
+    const { isNew } = data.body;
+    const userKey = c.get('userKey');
+    const userId = c.get('userId');
 
     const result = await calculateUserCredits(c.env, userKey, userId, isNew);
 
