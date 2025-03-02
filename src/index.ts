@@ -58,43 +58,15 @@ const app = new Hono<{
   };
 }>();
 
+// CORS middleware
 app.use(
   '*',
   cors({
-    origin: ['*'],
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposeHeaders: ['Content-Length', 'X-Content-Type-Options'],
-    maxAge: 86400,
-    credentials: false,
+    origin: '*',
+    allowMethods: ['GET', 'POST'],
+    allowHeaders: ['Content-Type', 'Authorization'],
   }),
 );
-
-// Add OPTIONS handler for all routes
-app.options('*', c => {
-  return new Response('', { status: 204 });
-});
-
-// Enhance error handling
-app.onError(async (err, c) => {
-  console.error('Error details:', {
-    error: err,
-    path: c.req.path,
-    method: c.req.method,
-  });
-
-  if (err instanceof GatewayServiceError) {
-    return c.json({ error: err.message }, err.code);
-  }
-
-  return c.json(
-    {
-      error: 'Internal Server Error',
-      path: c.req.path,
-    },
-    500,
-  );
-});
 
 // Apply jwtAuthMiddleware only to specific routes
 app.use('/take_job', jwtOrApiKeyAuthMiddleware);
@@ -136,6 +108,7 @@ app.use('/pool_manage/manage_user', jwtAuthMiddleware);
 app.use('/user_points/calculate-credits', jwtAuthMiddleware);
 app.use('/user_points/update-claimed-status', jwtAuthMiddleware);
 app.use('/tg_user/verify', jwtAuthMiddleware);
+
 // Error handling middleware
 app.onError(async (err, c) => {
   if (err instanceof GatewayServiceError) {
