@@ -29,7 +29,6 @@ export async function calculateUserCredits(
       .where(eq(tgUsers.userId, userId));
 
     const tgUser = (await tgUserQuery)[0];
-    console.log('Drizzle result:', tgUser);
 
     // 构建查询条件，确保所有参数都有效
     const balanceCondition = and(
@@ -87,12 +86,6 @@ export async function updateUserClaimedStatus(env: Env, userKey: string, userId:
   const db = createDb(env.DB);
 
   try {
-    // 直接使用原始 SQL 查询来调试
-    const rawResult = await env.DB.prepare('SELECT * FROM tg_users WHERE user_id = ?')
-      .bind(userId)
-      .all();
-    console.log('Raw SQL result:', rawResult);
-
     // 使用 drizzle 查询
     const tgUserQuery = db
       .select({
