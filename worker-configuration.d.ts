@@ -14,4 +14,5 @@ interface Env {
   CF_ACCOUNT_ID: string;
   CF_KV_NAMESPACE_ID: string;
   CF_API_TOKEN: string;
+  TOKEN_ADDRESS: string;
 }

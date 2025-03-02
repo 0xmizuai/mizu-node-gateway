@@ -1,0 +1,130 @@
+import { OpenAPIRoute } from 'chanfana';
+import { z } from 'zod';
+import { GatewayServiceContext } from '../types';
+import { calculateUserCredits, updateUserClaimedStatus } from '../db/balance_points';
+
+export class CalculateCredits extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              isNew: z.boolean(),
+              userKey: z.string(),
+              userId: z.string(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: 'Success',
+        content: {
+          'application/json': {
+            schema: z.object({
+              code: z.number(),
+              data: z.object({
+                totalCredits: z.number(),
+                details: z.object({
+                  balanceCredits: z.number(),
+                  emailBalance: z.number(),
+                  tgBalance: z.number(),
+                  emailPoints: z.number(),
+                  tgPoints: z.number(),
+                }),
+              }),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const { isNew, userKey, userId } = data.body;
+
+    const result = await calculateUserCredits(c.env, userKey, userId, isNew);
+
+    // 计算积分
+    const calculateCredits = (items: any[], multiplier: number) => {
+      return Math.floor(
+        (items || []).reduce((sum: number, item: any) => {
+          if (!item.is_calculate) {
+            const value = Number(item.claimed_point || item.token_balance) || 0;
+            return sum + value * multiplier;
+          }
+          return sum;
+        }, 0),
+      );
+    };
+
+    const balanceCredits = calculateCredits(
+      [...(result.emailBalance || []), ...(result.tgBalance || [])],
+      1000000,
+    );
+    const pointCredits = calculateCredits(
+      [...(result.emailPoints || []), ...(result.tgPoints || [])],
+      100,
+    );
+    const totalCredits = Math.floor(pointCredits + balanceCredits + (result.isNew ? 1000000 : 0));
+
+    return c.json({
+      code: 0,
+      data: {
+        totalCredits,
+        details: {
+          balanceCredits,
+          emailBalance: Number(result.emailBalance?.[0]?.tokenBalance || 0) * 1000000,
+          tgBalance: Number(result.tgBalance?.[0]?.tokenBalance || 0) * 1000000,
+          emailPoints: Number(result.emailPoints?.[0]?.claimedPoint || 0) * 100,
+          tgPoints: Number(result.tgPoints?.[0]?.claimedPoint || 0) * 100,
+        },
+      },
+    });
+  }
+}
+
+export class UpdateClaimedStatus extends OpenAPIRoute {
+  schema = {
+    request: {
+      body: {
+        content: {
+          'application/json': {
+            schema: z.object({
+              userKey: z.string(),
+              userId: z.string(),
+            }),
+          },
+        },
+      },
+    },
+    responses: {
+      '200': {
+        description: 'Success',
+        content: {
+          'application/json': {
+            schema: z.object({
+              code: z.number(),
+              data: z.boolean(),
+            }),
+          },
+        },
+      },
+    },
+  };
+
+  async handle(c: GatewayServiceContext) {
+    const data = await this.getValidatedData<typeof this.schema>();
+    const { userKey, userId } = data.body;
+
+    await updateUserClaimedStatus(c.env, userKey, userId);
+
+    return c.json({
+      code: 0,
+      data: true,
+    });
+  }
+}

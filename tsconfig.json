@@ -44,6 +44,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "exclude": ["test"],
+  "exclude": ["test", "node_modules"],
   "include": ["worker-configuration.d.ts", "src/**/*.ts"]
 }

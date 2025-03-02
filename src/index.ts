@@ -37,6 +37,7 @@ import {
   WorkerStart,
 } from './handlers/pool_manage';
 import { GatewayServiceError } from './types';
+import { CalculateCredits, UpdateClaimedStatus } from './handlers/balance_points';
 
 const app = new Hono<{
   Bindings: {
@@ -103,6 +104,9 @@ app.use('/pool_manage/users', jwtAuthMiddleware);
 app.use('/pool_manage/user_status', jwtAuthMiddleware);
 app.use('/pool_manage/apply_user', jwtAuthMiddleware);
 app.use('/pool_manage/manage_user', jwtAuthMiddleware);
+
+app.use('/user_points/calculate-credits', jwtAuthMiddleware);
+app.use('/user_points/update-claimed-status', jwtAuthMiddleware);
 // Error handling middleware
 app.onError(async (err, c) => {
   if (err instanceof GatewayServiceError) {
@@ -172,6 +176,9 @@ openapi.get('/pool_manage/user_status', GetPoolUserStatus);
 openapi.post('/pool_manage/apply_user', ApplyPoolUser);
 openapi.post('/pool_manage/manage_user', ManagePoolUser);
 openapi.get('/pool_manage/user_counts', GetUserCounts);
+
+openapi.post('/user_points/calculate-credits', CalculateCredits);
+openapi.post('/user_points/update-claimed-status', UpdateClaimedStatus);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));
