@@ -31,14 +31,11 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
         userId: tgUsers.userId,
       })
       .from(tgUsers)
-      .where(eq(tgUsers.userId, 'JxtgyLPeFFP9cuJ4VjWr4hCk1Bf2'));
+      .where(eq(tgUsers.userId, userId));
 
     console.log('TG user query result:', tgUserQuery);
 
-    // const tgUser = tgUserQuery[0];
-    const tgUser = {
-      tgId: '7275460694',
-    };
+    const tgUser = tgUserQuery[0];
 
     console.log('Drizzle query result:', tgUserQuery);
 
@@ -55,21 +52,29 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
 
     // 并行查询所有数据，添加错误处理
     const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
-      await db
+      db
         .select()
         .from(userBalance)
-        // .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
-        .where(eq(userBalance.userKey, userKey))
+        .where(and(balanceCondition, eq(userBalance.userKey, userKey)))
         .catch(err => {
           console.error('Email balance query error:', err);
           return [];
         }),
-      await db.select().from(userRewardPoints).where(eq(userBalance.userKey, userKey)),
+      db
+        .select()
+        .from(userRewardPoints)
+        .where(and(pointCondition, eq(userRewardPoints.userKey, userKey))),
       tgUser?.tgId
-        ? await db.select().from(userBalance).where(eq(userBalance.userKey, tgUser.tgId))
+        ? db
+            .select()
+            .from(userBalance)
+            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
         : Promise.resolve([]),
       tgUser?.tgId
-        ? await db.select().from(userRewardPoints).where(eq(userBalance.userKey, tgUser.tgId))
+        ? db
+            .select()
+            .from(userRewardPoints)
+            .where(and(pointCondition, eq(userRewardPoints.userKey, tgUser.tgId)))
         : Promise.resolve([]),
     ]);
 
