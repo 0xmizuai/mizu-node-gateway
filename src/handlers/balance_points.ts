@@ -48,7 +48,6 @@ export class CalculateCredits extends OpenAPIRoute {
     const userKey = c.get('userKey');
     const userId = c.get('userId');
 
-    // 确保必要的参数都存在且有效
     if (!userKey || !userId || typeof isNew !== 'boolean') {
       return c.json({
         code: 1,
@@ -72,9 +71,9 @@ export class CalculateCredits extends OpenAPIRoute {
       console.log('Calculate credits result:', result);
 
       // 确保 result 不为空
-      if (!result) {
-        throw new Error('Failed to calculate credits');
-      }
+      // if (!result) {
+      //   throw new Error('Failed to calculate credits');
+      // }
 
       const calculateCredits = (items: any[] = [], multiplier: number) => {
         return Math.floor(
