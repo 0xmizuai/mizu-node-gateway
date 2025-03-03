@@ -33,7 +33,6 @@ export class CalculateCredits extends OpenAPIRoute {
                   emailPoints: z.number(),
                   tgPoints: z.number(),
                 }),
-                result: any(),
               }),
             }),
           },
@@ -109,7 +108,6 @@ export class CalculateCredits extends OpenAPIRoute {
             emailPoints,
             tgPoints,
           },
-          result,
         },
       });
     } catch (error) {
@@ -155,20 +153,29 @@ export class UpdateClaimedStatus extends OpenAPIRoute {
   };
 
   async handle(c: GatewayServiceContext) {
-    const data = await this.getValidatedData<typeof this.schema>();
-    const { claimedCount } = data.body;
-    const userKey = c.get('userKey');
-    const userId = c.get('userId');
+    try {
+      const data = await this.getValidatedData<typeof this.schema>();
+      const { claimedCount } = data.body;
+      const userKey = c.get('userKey');
+      const userId = c.get('userId');
 
-    // 1. 先更新积分数据
-    await updateCredits(c.env, userId, claimedCount);
+      await updateCredits(c.env, userId, claimedCount);
+      await updateUserClaimedStatus(c.env, userKey, userId);
 
-    // 2. 再标记状态为已计算
-    await updateUserClaimedStatus(c.env, userKey, userId);
-
-    return c.json({
-      code: 0,
-      data: true,
-    });
+      return c.json({
+        code: 0,
+        data: true,
+      });
+    } catch (error) {
+      console.error('Update claimed status error:', error);
+      return c.json(
+        {
+          code: 1,
+          message: error || 'Failed to update claimed status',
+          data: null,
+        },
+        500,
+      );
+    }
   }
 }
