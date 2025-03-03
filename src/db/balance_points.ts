@@ -1,4 +1,4 @@
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { eq, and, or, isNull, ilike } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { userBalance } from '../schema/userBalance';
@@ -25,22 +25,22 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
       db
         .select()
         .from(userBalance)
-        .where(and(balanceCondition, eq(userBalance.userKey, userKey))),
+        .where(and(balanceCondition, ilike(userBalance.userKey, userKey))),
 
       // 邮箱用户积分
-      db.select().from(userRewardPoints).where(eq(userRewardPoints.userKey, userKey)),
+      db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, userKey)),
 
       // TG 用户余额
       tgUser?.tgId
         ? db
             .select()
             .from(userBalance)
-            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
+            .where(and(balanceCondition, ilike(userBalance.userKey, tgUser.tgId)))
         : Promise.resolve([]),
 
       // TG 用户积分
       tgUser?.tgId
-        ? db.select().from(userRewardPoints).where(eq(userRewardPoints.userKey, tgUser.tgId))
+        ? db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, tgUser.tgId))
         : Promise.resolve([]),
     ]);
 
