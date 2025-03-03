@@ -21,34 +21,27 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
     const balanceCondition = ilike(userBalance.tokenAddress, env.TOKEN_ADDRESS || '');
 
     const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
-      // 邮箱用户余额
       db
         .select()
         .from(userBalance)
         .where(and(balanceCondition, ilike(userBalance.userKey, userKey))),
-
-      // 邮箱用户积分
       db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, userKey)),
-
-      // TG 用户余额
       tgUser?.tgId
         ? db
             .select()
             .from(userBalance)
             .where(and(balanceCondition, ilike(userBalance.userKey, tgUser.tgId)))
         : Promise.resolve([]),
-
-      // TG 用户积分
       tgUser?.tgId
         ? db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, tgUser.tgId))
         : Promise.resolve([]),
     ]);
 
     return {
-      emailBalance,
-      emailPoints,
-      tgBalance,
-      tgPoints,
+      emailBalance: emailBalance || [],
+      emailPoints: emailPoints || [],
+      tgBalance: tgBalance || [],
+      tgPoints: tgPoints || [],
     };
   } catch (error) {
     console.error('Database query error:', error);
