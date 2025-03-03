@@ -1,4 +1,4 @@
-import { eq, and, or, isNull, ilike } from 'drizzle-orm';
+import { eq, and, or, isNull } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { userBalance } from '../schema/userBalance';
@@ -38,7 +38,6 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
     ]);
 
     return {
-      tgUser,
       emailBalance: emailBalance || [],
       emailPoints: emailPoints || [],
       tgBalance: tgBalance || [],

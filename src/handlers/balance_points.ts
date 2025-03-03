@@ -54,13 +54,12 @@ export class CalculateCredits extends OpenAPIRoute {
         message: 'Invalid parameters',
         data: {
           totalCredits: 0,
-          // details: {
-          //   emailBalance: 0,
-          //   tgBalance: 0,
-          //   emailPoints: 0,
-          //   tgPoints: 0,
-          // },
-          result: null,
+          details: {
+            emailBalance: 0,
+            tgBalance: 0,
+            emailPoints: 0,
+            tgPoints: 0,
+          },
         },
       });
     }
@@ -68,12 +67,9 @@ export class CalculateCredits extends OpenAPIRoute {
     try {
       const result = await calculateUserCredits(c.env, userKey, userId);
 
-      console.log('Calculate credits result:', result);
-
-      // 确保 result 不为空
-      // if (!result) {
-      //   throw new Error('Failed to calculate credits');
-      // }
+      if (!result) {
+        throw new Error('Failed to calculate credits');
+      }
 
       const calculateCredits = (items: any[] = [], multiplier: number) => {
         return Math.floor(
@@ -101,20 +97,25 @@ export class CalculateCredits extends OpenAPIRoute {
         );
       };
 
-      // const emailBalance = calculateCredits(result.emailBalance, 1000000);
-      // const tgBalance = calculateCredits(result.tgBalance, 1000000);
-      // const emailPoints = calculateCredits(result.emailPoints, 100);
-      // const tgPoints = calculateCredits(result.tgPoints, 100);
+      const emailBalance = calculateCredits(result.emailBalance, 1000000);
+      const tgBalance = calculateCredits(result.tgBalance, 1000000);
+      const emailPoints = calculateCredits(result.emailPoints, 100);
+      const tgPoints = calculateCredits(result.tgPoints, 100);
 
-      // const totalCredits = Math.floor(
-      //   emailPoints + tgPoints + emailBalance + tgBalance + (isNew ? 1000000 : 0),
-      // );
+      const totalCredits = Math.floor(
+        emailPoints + tgPoints + emailBalance + tgBalance + (isNew ? 1000000 : 0),
+      );
 
       return c.json({
         code: 0,
         data: {
-          totalCredits: 0,
-          result,
+          totalCredits,
+          details: {
+            emailBalance,
+            tgBalance,
+            emailPoints,
+            tgPoints,
+          },
         },
       });
     } catch (error) {
