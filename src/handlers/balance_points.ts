@@ -76,15 +76,23 @@ export class CalculateCredits extends OpenAPIRoute {
       const calculateCredits = (items: any[] = [], multiplier: number) => {
         return Math.floor(
           items.reduce((sum: number, item: any) => {
+            // 只计算未计算过的记录
             if (!item?.is_calculate) {
-              // 处理不同类型的值
-              let value = 0;
+              // token_balance 需要考虑 decimals
               if (item?.token_balance) {
-                value = Number(item.token_balance) / Math.pow(10, 18);
-              } else {
-                value = Number(item?.claimed_point) || 0;
+                const balance = Number(item.token_balance);
+                // 确保 balance 是有效数字
+                if (!isNaN(balance)) {
+                  return sum + (balance / Math.pow(10, item.token_decimals || 18)) * multiplier;
+                }
               }
-              return sum + value * multiplier;
+              // claimed_point 直接使用原值
+              else if (item?.claimed_point) {
+                const points = Number(item.claimed_point);
+                if (!isNaN(points)) {
+                  return sum + points * multiplier;
+                }
+              }
             }
             return sum;
           }, 0),
