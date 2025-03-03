@@ -75,7 +75,7 @@ export class CalculateCredits extends OpenAPIRoute {
         return Math.floor(
           items.reduce((sum: number, item: any) => {
             // 只计算未计算过的记录
-            if (!item?.is_calculate) {
+            if (item?.is_calculate === 0 || item?.is_calculate === null) {
               // token_balance 需要考虑 decimals
               if (item?.token_balance) {
                 const balance = Number(item.token_balance);
