@@ -18,26 +18,27 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
       columns: { tgId: true },
     });
 
-    const balanceCondition = ilike(userBalance.tokenAddress, env.TOKEN_ADDRESS || '');
+    const balanceCondition = eq(userBalance.tokenAddress, env.TOKEN_ADDRESS || '');
 
     const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
       db
         .select()
         .from(userBalance)
-        .where(and(balanceCondition, ilike(userBalance.userKey, userKey))),
-      db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, userKey)),
+        .where(and(balanceCondition, eq(userBalance.userKey, userKey))),
+      db.select().from(userRewardPoints).where(eq(userRewardPoints.userKey, userKey)),
       tgUser?.tgId
         ? db
             .select()
             .from(userBalance)
-            .where(and(balanceCondition, ilike(userBalance.userKey, tgUser.tgId)))
+            .where(and(balanceCondition, eq(userBalance.userKey, tgUser.tgId)))
         : Promise.resolve([]),
       tgUser?.tgId
-        ? db.select().from(userRewardPoints).where(ilike(userRewardPoints.userKey, tgUser.tgId))
+        ? db.select().from(userRewardPoints).where(eq(userRewardPoints.userKey, tgUser.tgId))
         : Promise.resolve([]),
     ]);
 
     return {
+      tgUser,
       emailBalance: emailBalance || [],
       emailPoints: emailPoints || [],
       tgBalance: tgBalance || [],
