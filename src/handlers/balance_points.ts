@@ -72,24 +72,22 @@ export class CalculateCredits extends OpenAPIRoute {
       }
 
       const calculateCredits = (items: any[] = [], multiplier: number) => {
+        console.log('Calculating items:', items);
         return Math.floor(
           items.reduce((sum: number, item: any) => {
             // 只计算未计算过的记录
-            if (item?.is_calculate === 0 || item?.is_calculate === null) {
+            if (item?.is_calculate === 0) {
               // token_balance 需要考虑 decimals
               if (item?.token_balance) {
-                const balance = Number(item.token_balance);
-                // 确保 balance 是有效数字
-                if (!isNaN(balance)) {
-                  return sum + (balance / Math.pow(10, item.token_decimals || 18)) * multiplier;
-                }
+                const balance = BigInt(item.token_balance);
+                const calculated = (Number(balance) / Math.pow(10, 18)) * multiplier;
+                return sum + calculated;
               }
               // claimed_point 直接使用原值
-              else if (item?.claimed_point) {
-                const points = Number(item.claimed_point);
-                if (!isNaN(points)) {
-                  return sum + points * multiplier;
-                }
+              else if (typeof item?.claimed_point === 'number') {
+                const calculated = item.claimed_point * multiplier;
+                console.log('Point calculation:', { point: item.claimed_point, calculated });
+                return sum + calculated;
               }
             }
             return sum;
