@@ -1,8 +1,9 @@
 import { OpenAPIRoute } from 'chanfana';
-import { z } from 'zod';
+import { any, z } from 'zod';
 import { GatewayServiceContext } from '../types';
 import { calculateUserCredits, updateUserClaimedStatus } from '../db/balance_points';
 import { updateCredits } from '../db/credit';
+import { resend } from '@upstash/qstash';
 
 export class CalculateCredits extends OpenAPIRoute {
   schema = {
@@ -26,12 +27,13 @@ export class CalculateCredits extends OpenAPIRoute {
               code: z.number(),
               data: z.object({
                 totalCredits: z.number(),
-                details: z.object({
-                  emailBalance: z.number(),
-                  tgBalance: z.number(),
-                  emailPoints: z.number(),
-                  tgPoints: z.number(),
-                }),
+                // details: z.object({
+                //   emailBalance: z.number(),
+                //   tgBalance: z.number(),
+                //   emailPoints: z.number(),
+                //   tgPoints: z.number(),
+                // }),
+                result: any(),
               }),
             }),
           },
@@ -53,12 +55,13 @@ export class CalculateCredits extends OpenAPIRoute {
         message: 'Invalid parameters',
         data: {
           totalCredits: 0,
-          details: {
-            emailBalance: 0,
-            tgBalance: 0,
-            emailPoints: 0,
-            tgPoints: 0,
-          },
+          // details: {
+          //   emailBalance: 0,
+          //   tgBalance: 0,
+          //   emailPoints: 0,
+          //   tgPoints: 0,
+          // },
+          result: null,
         },
       });
     }
@@ -99,25 +102,20 @@ export class CalculateCredits extends OpenAPIRoute {
         );
       };
 
-      const emailBalance = calculateCredits(result.emailBalance, 1000000);
-      const tgBalance = calculateCredits(result.tgBalance, 1000000);
-      const emailPoints = calculateCredits(result.emailPoints, 100);
-      const tgPoints = calculateCredits(result.tgPoints, 100);
+      // const emailBalance = calculateCredits(result.emailBalance, 1000000);
+      // const tgBalance = calculateCredits(result.tgBalance, 1000000);
+      // const emailPoints = calculateCredits(result.emailPoints, 100);
+      // const tgPoints = calculateCredits(result.tgPoints, 100);
 
-      const totalCredits = Math.floor(
-        emailPoints + tgPoints + emailBalance + tgBalance + (isNew ? 1000000 : 0),
-      );
+      // const totalCredits = Math.floor(
+      //   emailPoints + tgPoints + emailBalance + tgBalance + (isNew ? 1000000 : 0),
+      // );
 
       return c.json({
         code: 0,
         data: {
-          totalCredits,
-          details: {
-            emailBalance,
-            tgBalance,
-            emailPoints,
-            tgPoints,
-          },
+          totalCredits: 0,
+          result,
         },
       });
     } catch (error) {
