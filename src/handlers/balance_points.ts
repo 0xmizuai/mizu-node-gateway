@@ -27,12 +27,12 @@ export class CalculateCredits extends OpenAPIRoute {
               code: z.number(),
               data: z.object({
                 totalCredits: z.number(),
-                // details: z.object({
-                //   emailBalance: z.number(),
-                //   tgBalance: z.number(),
-                //   emailPoints: z.number(),
-                //   tgPoints: z.number(),
-                // }),
+                details: z.object({
+                  emailBalance: z.number(),
+                  tgBalance: z.number(),
+                  emailPoints: z.number(),
+                  tgPoints: z.number(),
+                }),
                 result: any(),
               }),
             }),
@@ -116,6 +116,7 @@ export class CalculateCredits extends OpenAPIRoute {
             emailPoints,
             tgPoints,
           },
+          result,
         },
       });
     } catch (error) {
