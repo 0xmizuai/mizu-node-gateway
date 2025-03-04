@@ -39,8 +39,6 @@ export async function createTgUser(env: Env, data: Itguser) {
       firstName: data.firstName || null,
       lastName: data.lastName || null,
       authDate: data.authDate || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     } as const;
 
     const result = await db.insert(tgUsers).values(insertData).returning();

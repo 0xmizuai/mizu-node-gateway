@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS tg_users (
   last_name TEXT,
   photo_url TEXT,
   auth_date INTEGER,
-  created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-  updated_at INTEGER DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_tg_users_user_id ON tg_users(user_id);

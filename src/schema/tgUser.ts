@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const tgUsers = sqliteTable('tg_users', {
@@ -9,6 +10,6 @@ export const tgUsers = sqliteTable('tg_users', {
   lastName: text('last_name'),
   photoUrl: text('photo_url'),
   authDate: integer('auth_date'),
-  createdAt: integer('created_at'),
-  updatedAt: integer('updated_at'),
+  createdAt: text('created_at').default(sql`datetime('now')`),
+  updatedAt: text('updated_at').default(sql`datetime('now')`),
 });
