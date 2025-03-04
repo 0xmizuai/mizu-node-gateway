@@ -68,7 +68,7 @@ export async function updateUserClaimedStatus(env: Env, userKey: string, userId:
     // 构建查询条件，确保所有参数都有效
     const balanceCondition = and(
       or(eq(userBalance.isCalculate, 0), isNull(userBalance.isCalculate)),
-      eq(userBalance.tokenAddress, env.TOKEN_ADDRESS || ''),
+      eq(userBalance.tokenAddress, env.BALANCE_ADDRESS || ''),
     );
 
     const pointCondition = or(
