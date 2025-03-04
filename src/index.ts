@@ -112,7 +112,7 @@ app.use('/user_points/update-claimed-status', jwtAuthMiddleware);
 app.use('/tg/verify', jwtAuthMiddleware);
 app.use('/tg/link', jwtAuthMiddleware);
 app.use('/wallet/address', jwtAuthMiddleware);
-app.use('/update/address', serviceApiKeyAuthMiddleware);
+app.use('/update/address', jwtAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
