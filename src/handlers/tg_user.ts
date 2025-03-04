@@ -1,7 +1,6 @@
 import { OpenAPIRoute } from 'chanfana';
 import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
-import { z } from 'zod';
 
 export interface TgAuthRequest {
   body: {
