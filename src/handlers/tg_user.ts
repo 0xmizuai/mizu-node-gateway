@@ -1,6 +1,7 @@
 import { OpenAPIRoute } from 'chanfana';
 import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
+import { z } from 'zod';
 
 export interface TgAuthRequest {
   body: {
@@ -63,39 +64,17 @@ export class TgLink extends OpenAPIRoute {
       body: {
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                authData: {
-                  type: 'object',
-                  properties: {
-                    auth_date: {
-                      type: 'number',
-                    },
-                    first_name: {
-                      type: 'string',
-                    },
-                    hash: {
-                      type: 'string',
-                    },
-                    id: {
-                      type: 'number',
-                    },
-                    last_name: {
-                      type: 'string',
-                    },
-                    photo_url: {
-                      type: 'string',
-                    },
-                    username: {
-                      type: 'string',
-                    },
-                  },
-                  required: ['auth_date', 'first_name', 'hash', 'id'],
-                },
-              },
-              required: ['authData'],
-            },
+            schema: z.object({
+              authData: z.object({
+                auth_date: z.number(),
+                first_name: z.string(),
+                hash: z.string(),
+                id: z.number(),
+                last_name: z.string().optional(),
+                photo_url: z.string().optional(),
+                username: z.string(),
+              }),
+            }),
           },
         },
       },
