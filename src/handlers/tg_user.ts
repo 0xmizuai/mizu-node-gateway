@@ -2,6 +2,20 @@ import { OpenAPIRoute } from 'chanfana';
 import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
 
+export interface TgAuthRequest {
+  body: {
+    authData: {
+      auth_date: number;
+      first_name: string;
+      hash: string;
+      id: number;
+      last_name?: string;
+      photo_url?: string;
+      username?: string;
+    };
+  };
+}
+
 export class TgVerify extends OpenAPIRoute {
   schema = {
     responses: {
@@ -54,27 +68,30 @@ export class TgLink extends OpenAPIRoute {
               properties: {
                 authData: {
                   type: 'object',
-                  auth_date: {
-                    type: 'number',
+                  properties: {
+                    auth_date: {
+                      type: 'number',
+                    },
+                    first_name: {
+                      type: 'string',
+                    },
+                    hash: {
+                      type: 'string',
+                    },
+                    id: {
+                      type: 'number',
+                    },
+                    last_name: {
+                      type: 'string',
+                    },
+                    photo_url: {
+                      type: 'string',
+                    },
+                    username: {
+                      type: 'string',
+                    },
                   },
-                  first_name: {
-                    type: 'string',
-                  },
-                  hash: {
-                    type: 'string',
-                  },
-                  id: {
-                    type: 'number',
-                  },
-                  last_name: {
-                    type: 'string',
-                  },
-                  photo_url: {
-                    type: 'string',
-                  },
-                  username: {
-                    type: 'string',
-                  },
+                  required: ['auth_date', 'first_name', 'hash', 'id'],
                 },
               },
               required: ['authData'],
@@ -107,17 +124,19 @@ export class TgLink extends OpenAPIRoute {
     }
 
     try {
-      const data: any = await this.getValidatedData<typeof this.schema>();
+      const data = (await this.getValidatedData()) as TgAuthRequest;
+      if (!data?.body?.authData) {
+        return c.json({ code: -1, message: 'Invalid auth data' }, 400);
+      }
       const { authData } = data.body;
-      // const telegramUser = await validateTelegramUser(authData, c.env.BOT_TOKEN);
       const newTgUser = await createTgUser(c.env, {
         userId,
-        tgId: authData.tgId.toString(),
-        photoUrl: authData.photoUrl || '',
-        firstName: authData.firstName || '',
+        tgId: authData.id.toString(),
+        photoUrl: authData.photo_url || '',
+        firstName: authData.first_name || '',
         username: authData.username || '',
-        lastName: authData.lastName || '',
-        authDate: authData.authDate,
+        lastName: authData.last_name || '',
+        authDate: authData.auth_date,
       });
 
       return c.json({
