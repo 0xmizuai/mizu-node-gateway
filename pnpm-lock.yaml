@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@telegram-auth/server':
+        specifier: ^1.0.4
+        version: 1.0.4
       '@upstash/qstash':
         specifier: ^2.7.21
         version: 2.7.22
@@ -1033,6 +1036,9 @@ packages:
     resolution: {integrity: sha512-U0FaE5O1BCpZSeE6gBl3c5ObhePQSfk9vDRToMmTkbhCOgW4jqvtS5LGyQ76L1fH8sM0keRp4uDTsbjiUyjk0g==}
     cpu: [x64]
     os: [win32]
+
+  '@telegram-auth/server@1.0.4':
+    resolution: {integrity: sha512-A0JysRmNhGnq8JZKoWx7KwEWTnHPI6GmSp7lzKWPanP//agFF/EBkOpnKcMhsvSlikYFRZKfNo+OvFX9zDEU4w==}
 
   '@tsconfig/node10@1.0.11':
     resolution: {integrity: sha512-DcRjDCujK/kCk/cUe8Xz8ZSpm8mS3mNNpta+jGCA6USEDfktlNvm1+IuZ9eTcDbNk41BHwpHHeW+N1lKCz4zOw==}
@@ -3011,6 +3017,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.34.8':
     optional: true
+
+  '@telegram-auth/server@1.0.4': {}
 
   '@tsconfig/node10@1.0.11': {}
 
