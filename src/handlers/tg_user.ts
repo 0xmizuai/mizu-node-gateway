@@ -103,7 +103,7 @@ export class TgLink extends OpenAPIRoute {
     }
 
     try {
-      const data = (await this.getValidatedData()) as TgAuthRequest;
+      const data = await this.getValidatedData();
       if (!data?.body?.authData) {
         return c.json({ code: -1, message: 'Invalid auth data' }, 400);
       }
