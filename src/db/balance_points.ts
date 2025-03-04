@@ -3,6 +3,7 @@ import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { userBalance } from '../schema/userBalance';
 import { userRewardPoints } from '../schema/userPoint';
+import { Env } from '../../worker-configuration';
 
 export async function calculateUserCredits(env: Env, userKey: string, userId: string) {
   if (!env?.DB || !userKey || !userId) {

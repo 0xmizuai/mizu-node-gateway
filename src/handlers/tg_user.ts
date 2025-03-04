@@ -47,6 +47,7 @@ export class TgVerify extends OpenAPIRoute {
 
 const validateTelegramUser = async (
   authData: Record<string, string | number>,
+  BOT_TOKEN: string,
 ): Promise<Itguser> => {
   const url = 'https://oauth.telegram.org/auth';
   const queryString = Object.keys(authData)
@@ -55,6 +56,7 @@ const validateTelegramUser = async (
   const serializedUrl = `${url}?${queryString}`;
 
   const validator = new AuthDataValidator({
+    botToken: BOT_TOKEN || '',
     inValidateDataAfter: 3600 * 24 * 7,
   });
   const data = urlStrToAuthDataMap(serializedUrl);
@@ -114,7 +116,7 @@ export class TgLink extends OpenAPIRoute {
     try {
       const data: any = await this.getValidatedData<typeof this.schema>();
       const { authData } = data.body;
-      const telegramUser = await validateTelegramUser(authData);
+      const telegramUser = await validateTelegramUser(authData, c.env.BOT_TOKEN);
       const newTgUser = await createTgUser(c.env, {
         userId,
         tgId: telegramUser.tgId.toString(),

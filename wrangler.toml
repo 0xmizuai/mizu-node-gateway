@@ -1,6 +1,7 @@
 name = "mizu_node_gateway"
 main = "src/index.ts"
 compatibility_date = "2023-12-18"
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
@@ -11,3 +12,4 @@ database_id = "8996e54a-155d-43d8-bb8f-8a4466101e1b"
 enabled = true
 [vars]
 TOKEN_ADDRESS = "0x0C5eAB07a5E082ED5Dc14BAC7e9C706568C2905f"
+BOT_TOKEN ="7547250194:AAEOXJGTPhNTergqq5jRE9mgZRZ1ktJU5tk"

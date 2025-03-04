@@ -1,9 +1,8 @@
 import { OpenAPIRoute } from 'chanfana';
-import { any, z } from 'zod';
+import { z } from 'zod';
 import { GatewayServiceContext } from '../types';
 import { calculateUserCredits, updateUserClaimedStatus } from '../db/balance_points';
 import { updateCredits } from '../db/credit';
-import { resend } from '@upstash/qstash';
 
 export class CalculateCredits extends OpenAPIRoute {
   schema = {
@@ -64,7 +63,7 @@ export class CalculateCredits extends OpenAPIRoute {
     }
 
     try {
-      const result = await calculateUserCredits(c.env, userKey, userId);
+      const result = await calculateUserCredits({ ...c.env, BOT_TOKEN: '' }, userKey, userId);
 
       if (!result) {
         throw new Error('Failed to calculate credits');

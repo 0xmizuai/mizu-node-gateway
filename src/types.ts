@@ -46,6 +46,7 @@ export type GatewayServiceContext = Context<{
     CF_KV_NAMESPACE_ID: string;
     CF_API_TOKEN: string;
     TOKEN_ADDRESS: string;
+    BOT_TOKEN: string;
   };
   Variables: {
     userId: string;

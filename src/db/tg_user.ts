@@ -4,6 +4,7 @@ import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
 import { use } from 'hono/jsx';
 import { auth } from 'hono/utils/basic-auth';
+import { Env } from '../../worker-configuration';
 
 export async function getTgUser(env: Env, userId: string) {
   if (!env?.DB || !userId) {

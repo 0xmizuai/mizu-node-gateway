@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { string } from "zod";
+
 interface Env {
   KV: KVNamespace;
   DB: D1Database;
@@ -15,4 +17,5 @@ interface Env {
   CF_KV_NAMESPACE_ID: string;
   CF_API_TOKEN: string;
   TOKEN_ADDRESS: string;
+  BOT_TOKEN: string
 }
