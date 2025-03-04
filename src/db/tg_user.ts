@@ -2,6 +2,8 @@ import { eq, and, or, isNull } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
+import { use } from 'hono/jsx';
+import { auth } from 'hono/utils/basic-auth';
 
 export async function getTgUser(env: Env, userId: string) {
   if (!env?.DB || !userId) {
@@ -41,6 +43,9 @@ export async function createTgUser(env: Env, data: Itguser) {
     tgId: data.tgId,
     username: data.username || null,
     photoUrl: data.photoUrl || null,
+    firstName: data.firstName || null,
+    lastName: data.lastName || null,
+    authDate: data.authDate || null,
   } as const;
 
   const result = await db.insert(tgUsers).values(insertData).returning();
