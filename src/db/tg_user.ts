@@ -23,25 +23,29 @@ export async function createTgUser(env: Env, data: Itguser) {
   if (!env?.DB) {
     throw new Error('Database connection required');
   }
+  try {
+    const db = createDb(env.DB);
 
-  const db = createDb(env.DB);
+    // Ensure required fields are present
+    if (!data.userId || !data.tgId) {
+      throw new Error('userId and tgId are required');
+    }
 
-  // Ensure required fields are present
-  if (!data.userId || !data.tgId) {
-    throw new Error('userId and tgId are required');
+    const insertData = {
+      userId: data.userId,
+      tgId: data.tgId,
+      username: data.username || null,
+      photoUrl: data.photoUrl || null,
+      firstName: data.firstName || null,
+      lastName: data.lastName || null,
+      authDate: data.authDate || null,
+    } as const;
+
+    const result = await db.insert(tgUsers).values(insertData).returning();
+
+    return result[0];
+  } catch (error) {
+    console.error('Database query error:', error);
+    throw error;
   }
-
-  const insertData = {
-    userId: data.userId,
-    tgId: data.tgId,
-    username: data.username || null,
-    photoUrl: data.photoUrl || null,
-    firstName: data.firstName || null,
-    lastName: data.lastName || null,
-    authDate: data.authDate || null,
-  } as const;
-
-  const result = await db.insert(tgUsers).values(insertData).returning();
-
-  return result[0];
 }

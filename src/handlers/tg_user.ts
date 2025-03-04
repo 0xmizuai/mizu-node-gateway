@@ -64,17 +64,39 @@ export class TgLink extends OpenAPIRoute {
       body: {
         content: {
           'application/json': {
-            schema: z.object({
-              authData: z.object({
-                auth_date: z.number(),
-                first_name: z.string(),
-                hash: z.string(),
-                id: z.number(),
-                last_name: z.string().optional(),
-                photo_url: z.string().optional(),
-                username: z.string(),
-              }),
-            }),
+            schema: {
+              type: 'object',
+              properties: {
+                authData: {
+                  type: 'object',
+                  properties: {
+                    auth_date: {
+                      type: 'number',
+                    },
+                    first_name: {
+                      type: 'string',
+                    },
+                    hash: {
+                      type: 'string',
+                    },
+                    id: {
+                      type: 'number',
+                    },
+                    last_name: {
+                      type: 'string',
+                    },
+                    photo_url: {
+                      type: 'string',
+                    },
+                    username: {
+                      type: 'string',
+                    },
+                  },
+                  required: ['auth_date', 'first_name', 'hash', 'id'],
+                },
+              },
+              required: ['authData'],
+            },
           },
         },
       },
@@ -123,10 +145,13 @@ export class TgLink extends OpenAPIRoute {
       });
     } catch (error) {
       console.error('TG link error:', error);
-      return c.json({
-        code: -1,
-        message: error instanceof Error ? error.message : 'Failed to link Telegram',
-      });
+      return c.json(
+        {
+          code: -1,
+          message: error instanceof Error ? error.message : 'Failed to link Telegram',
+        },
+        500,
+      );
     }
   }
 }
