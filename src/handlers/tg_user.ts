@@ -1,8 +1,6 @@
 import { OpenAPIRoute } from 'chanfana';
 import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
-import { Itguser } from '../types/tgUser';
-import { AuthDataValidator, urlStrToAuthDataMap } from '@telegram-auth/server';
 
 export class TgVerify extends OpenAPIRoute {
   schema = {
