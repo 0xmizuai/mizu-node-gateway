@@ -54,7 +54,27 @@ export class TgLink extends OpenAPIRoute {
               properties: {
                 authData: {
                   type: 'object',
-                  additionalProperties: true,
+                  auth_date: {
+                    type: 'number',
+                  },
+                  first_name: {
+                    type: 'string',
+                  },
+                  hash: {
+                    type: 'string',
+                  },
+                  id: {
+                    type: 'number',
+                  },
+                  last_name: {
+                    type: 'string',
+                  },
+                  photo_url: {
+                    type: 'string',
+                  },
+                  username: {
+                    type: 'string',
+                  },
                 },
               },
               required: ['authData'],
