@@ -45,30 +45,30 @@ export class TgVerify extends OpenAPIRoute {
   }
 }
 
-const validateTelegramUser = async (
-  authData: Record<string, string | number>,
-  BOT_TOKEN: string,
-): Promise<Itguser> => {
-  const url = 'https://oauth.telegram.org/auth';
-  const queryString = Object.keys(authData)
-    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(authData[key])}`)
-    .join('&');
-  const serializedUrl = `${url}?${queryString}`;
+// const validateTelegramUser = async (
+//   authData: Record<string, string | number>,
+//   BOT_TOKEN: string,
+// ): Promise<Itguser> => {
+//   const url = 'https://oauth.telegram.org/auth';
+//   const queryString = Object.keys(authData)
+//     .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(authData[key])}`)
+//     .join('&');
+//   const serializedUrl = `${url}?${queryString}`;
 
-  const validator = new AuthDataValidator({
-    botToken: BOT_TOKEN || '',
-    inValidateDataAfter: 3600 * 24 * 7,
-  });
-  const data = urlStrToAuthDataMap(serializedUrl);
-  const validatedData = await validator.validate(data);
-  return {
-    tgId: validatedData.id.toString(),
-    username: validatedData.username || '',
-    firstName: validatedData.first_name || '',
-    lastName: validatedData.last_name || '',
-    photoUrl: validatedData.photo_url || '',
-  };
-};
+//   const validator = new AuthDataValidator({
+//     botToken: BOT_TOKEN || '',
+//     inValidateDataAfter: 3600 * 24 * 7,
+//   });
+//   const data = urlStrToAuthDataMap(serializedUrl);
+//   const validatedData = await validator.validate(data);
+//   return {
+//     tgId: validatedData.id.toString(),
+//     username: validatedData.username || '',
+//     firstName: validatedData.first_name || '',
+//     lastName: validatedData.last_name || '',
+//     photoUrl: validatedData.photo_url || '',
+//   };
+// };
 
 export class TgLink extends OpenAPIRoute {
   static schema = {
@@ -116,15 +116,15 @@ export class TgLink extends OpenAPIRoute {
     try {
       const data: any = await this.getValidatedData<typeof this.schema>();
       const { authData } = data.body;
-      const telegramUser = await validateTelegramUser(authData, c.env.BOT_TOKEN);
+      // const telegramUser = await validateTelegramUser(authData, c.env.BOT_TOKEN);
       const newTgUser = await createTgUser(c.env, {
         userId,
-        tgId: telegramUser.tgId.toString(),
-        photoUrl: telegramUser.photoUrl || '',
-        firstName: telegramUser.firstName || '',
-        username: telegramUser.username || '',
-        lastName: telegramUser.lastName || '',
-        authDate: telegramUser.authDate,
+        tgId: authData.tgId.toString(),
+        photoUrl: authData.photoUrl || '',
+        firstName: authData.firstName || '',
+        username: authData.username || '',
+        lastName: authData.lastName || '',
+        authDate: authData.authDate,
       });
 
       return c.json({
