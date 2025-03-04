@@ -38,7 +38,7 @@ import {
 } from './handlers/pool_manage';
 import { GatewayServiceError } from './types';
 import { CalculateCredits, UpdateClaimedStatus } from './handlers/balance_points';
-import { TgVerify } from './handlers/tg_user';
+import { TgLink, TgVerify } from './handlers/tg_user';
 
 const app = new Hono<{
   Bindings: {
@@ -108,7 +108,8 @@ app.use('/pool_manage/manage_user', jwtAuthMiddleware);
 
 app.use('/user_points/calculate-credits', jwtAuthMiddleware);
 app.use('/user_points/update-claimed-status', jwtAuthMiddleware);
-app.use('/tg_user/verify', jwtAuthMiddleware);
+app.use('/tg/verify', jwtAuthMiddleware);
+app.use('/tg/link', jwtAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
@@ -184,7 +185,8 @@ openapi.get('/pool_manage/user_counts', GetUserCounts);
 
 openapi.post('/user_points/calculate-credits', CalculateCredits);
 openapi.post('/user_points/update-claimed-status', UpdateClaimedStatus);
-openapi.post('/tg_user/verify', TgVerify);
+openapi.post('/tg//verify', TgVerify);
+openapi.post('/tg/link', TgLink);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));

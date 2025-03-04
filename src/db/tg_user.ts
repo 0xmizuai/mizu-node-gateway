@@ -8,15 +8,7 @@ export async function getTgUser(env: Env, userId: string) {
     throw new Error('Missing required parameters');
   }
   try {
-    // 测试数据库连接
-    console.log('Testing database connection...');
-    const testResult = await env.DB.prepare('SELECT 1').first();
-    console.log('Database connection test:', testResult);
     const db = createDb(env.DB);
-    // 打印查询信息
-    console.log('Query params:', {
-      userId,
-    });
     const tgUserQuery = await db
       .select({
         tgId: tgUsers.tgId,
@@ -24,11 +16,7 @@ export async function getTgUser(env: Env, userId: string) {
       })
       .from(tgUsers)
       .where(eq(tgUsers.userId, userId));
-
-    console.log('TG user query result:', tgUserQuery);
-    const tgUser = tgUserQuery[0];
-    console.log('Drizzle query result:', tgUserQuery);
-    return tgUser;
+    return tgUserQuery[0];
   } catch (error) {
     console.error('Database query error:', error);
     throw error;
