@@ -39,6 +39,7 @@ import {
 import { GatewayServiceError } from './types';
 import { CalculateCredits, UpdateClaimedStatus } from './handlers/balance_points';
 import { TgLink, TgVerify } from './handlers/tg_user';
+import { UpdateWalletAddress, WalletAddress } from './handlers/wallet_user';
 
 const app = new Hono<{
   Bindings: {
@@ -110,6 +111,8 @@ app.use('/user_points/calculate-credits', jwtAuthMiddleware);
 app.use('/user_points/update-claimed-status', jwtAuthMiddleware);
 app.use('/tg/verify', jwtAuthMiddleware);
 app.use('/tg/link', jwtAuthMiddleware);
+app.use('/wallet/address', jwtAuthMiddleware);
+app.use('/update/address', serviceApiKeyAuthMiddleware);
 
 // Error handling middleware
 app.onError(async (err, c) => {
@@ -187,6 +190,8 @@ openapi.post('/user_points/calculate-credits', CalculateCredits);
 openapi.post('/user_points/update-claimed-status', UpdateClaimedStatus);
 openapi.post('/tg/verify', TgVerify);
 openapi.post('/tg/link', TgLink);
+openapi.get('/wallet/address', WalletAddress);
+openapi.post('/update/address', UpdateWalletAddress);
 
 // Add unauthenticated routes
 app.get('/', c => c.text(''));
