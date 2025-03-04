@@ -185,7 +185,7 @@ openapi.get('/pool_manage/user_counts', GetUserCounts);
 
 openapi.post('/user_points/calculate-credits', CalculateCredits);
 openapi.post('/user_points/update-claimed-status', UpdateClaimedStatus);
-openapi.post('/tg//verify', TgVerify);
+openapi.post('/tg/verify', TgVerify);
 openapi.post('/tg/link', TgLink);
 
 // Add unauthenticated routes

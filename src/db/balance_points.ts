@@ -19,7 +19,7 @@ export async function calculateUserCredits(env: Env, userKey: string, userId: st
       columns: { tgId: true },
     });
 
-    const balanceCondition = eq(userBalance.tokenAddress, env.TOKEN_ADDRESS || '');
+    const balanceCondition = eq(userBalance.tokenAddress, env.BALANCE_ADDRESS || '');
 
     const [emailBalance, emailPoints, tgBalance, tgPoints] = await Promise.all([
       db
