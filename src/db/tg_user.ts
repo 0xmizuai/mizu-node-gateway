@@ -2,7 +2,20 @@ import { eq } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
-import { createApiKey } from './api_key';
+
+const formatDate = (date: Date): string => {
+  return date
+    .toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+    .replace(/\//g, '-');
+};
 
 export async function getTgUser(env: Env, userId: string) {
   if (!env?.DB || !userId) {
@@ -31,6 +44,7 @@ export async function createTgUser(env: Env, data: Itguser) {
       throw new Error('userId and tgId are required');
     }
 
+    const now = formatDate(new Date());
     const insertData = {
       userId: data.userId,
       tgId: data.tgId,
@@ -39,8 +53,8 @@ export async function createTgUser(env: Env, data: Itguser) {
       firstName: data.firstName || null,
       lastName: data.lastName || null,
       authDate: data.authDate || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     } as const;
 
     const result = await db.insert(tgUsers).values(insertData).returning();
