@@ -142,7 +142,7 @@ export class TgLink extends OpenAPIRoute {
       return c.json({
         code: 0,
         data: {
-          tgUser: newTgUser,
+          ...newTgUser,
         },
       });
     } catch (error) {
