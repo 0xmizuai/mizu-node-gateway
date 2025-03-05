@@ -1,6 +1,9 @@
 import { OpenAPIRoute } from 'chanfana';
 import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
+import { createDb } from '../db';
+import { tgUsers } from '../schema/tgUser';
+import { eq } from 'drizzle-orm';
 
 export interface TgAuthRequest {
   body: {
@@ -129,6 +132,17 @@ export class TgLink extends OpenAPIRoute {
         return c.json({ code: -1, message: 'Invalid auth data' }, 400);
       }
       const { authData } = rawData;
+      const db = createDb(c.env.DB);
+      const tgUserQuery = await db.select().from(tgUsers).where(eq(tgUsers.userId, userId));
+      if (tgUserQuery.length > 0) {
+        return c.json({
+          code: 0,
+          data: {
+            userId,
+          },
+        });
+      }
+
       const newTgUser = await createTgUser(c.env, {
         userId,
         tgId: authData.id.toString(),
