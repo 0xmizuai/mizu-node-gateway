@@ -133,7 +133,8 @@ export class TgLink extends OpenAPIRoute {
       }
       const { authData } = rawData;
       const db = createDb(c.env.DB);
-      const tgUserQuery = await db.select().from(tgUsers).where(eq(tgUsers.userId, userId));
+      const tgId = authData.id.toString();
+      const tgUserQuery = await db.select().from(tgUsers).where(eq(tgUsers.tgId, tgId));
       if (tgUserQuery.length > 0) {
         return c.json({
           code: 0,
