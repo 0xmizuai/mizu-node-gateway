@@ -63,7 +63,7 @@ export class CalculateCredits extends OpenAPIRoute {
     }
 
     try {
-      const result = await calculateUserCredits({ ...c.env, BOT_TOKEN: '' }, userKey, userId);
+      const result = await calculateUserCredits(c.env, userKey, userId);
 
       if (!result) {
         throw new Error('Failed to calculate credits');

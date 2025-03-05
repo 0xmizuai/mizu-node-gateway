@@ -3,7 +3,9 @@ import { createTgUser, getTgUser } from '../db/tg_user';
 import { GatewayServiceContext } from '../types';
 import { createDb } from '../db';
 import { tgUsers } from '../schema/tgUser';
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { getAuth } from 'firebase-admin/auth';
+import { initFirebaseAdmin } from '../lib/firebase-admin';
 
 export interface TgAuthRequest {
   body: {
@@ -119,6 +121,8 @@ export class TgLink extends OpenAPIRoute {
   };
 
   async handle(c: GatewayServiceContext) {
+    initFirebaseAdmin(c.env);
+
     const userId = c.get('userId');
     const userKey = c.get('userKey');
 
@@ -136,10 +140,13 @@ export class TgLink extends OpenAPIRoute {
       const db = createDb(c.env.DB);
       const tgUserQuery = await db.select().from(tgUsers).where(eq(tgUsers.tgId, tgId));
       if (tgUserQuery.length > 0) {
+        const tgUser = tgUserQuery[0];
+        const auth = getAuth();
+        const user = await auth.getUser(tgUser.userId);
         return c.json({
           code: 0,
           data: {
-            userId: tgUserQuery[0].userId,
+            account: user,
           },
         });
       }
@@ -156,7 +163,7 @@ export class TgLink extends OpenAPIRoute {
       return c.json({
         code: 0,
         data: {
-          ...newTgUser,
+          tgUser: newTgUser,
         },
       });
     } catch (error) {

@@ -2,7 +2,6 @@ import { eq, or } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
-import { Env } from '../../worker-configuration';
 
 export async function getTgUser(env: Env, userId: string) {
   if (!env?.DB || !userId) {

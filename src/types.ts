@@ -46,7 +46,9 @@ export type GatewayServiceContext = Context<{
     CF_KV_NAMESPACE_ID: string;
     CF_API_TOKEN: string;
     BALANCE_ADDRESS: string;
-    BOT_TOKEN: string;
+    FIREBASE_PROJECT_ID: string;
+    FIREBASE_CLIENT_EMAIL: string;
+    FIREBASE_PRIVATE_KEY: string;
   };
   Variables: {
     userId: string;
