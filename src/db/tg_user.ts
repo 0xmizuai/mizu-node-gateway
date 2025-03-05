@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
