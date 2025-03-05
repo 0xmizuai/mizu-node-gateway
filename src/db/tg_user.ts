@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { createDb } from './index';
 import { tgUsers } from '../schema/tgUser';
 import { Itguser } from '../types/tgUser';
+import { createApiKey } from './api_key';
 
 export async function getTgUser(env: Env, userId: string) {
   if (!env?.DB || !userId) {
@@ -38,6 +39,8 @@ export async function createTgUser(env: Env, data: Itguser) {
       firstName: data.firstName || null,
       lastName: data.lastName || null,
       authDate: data.authDate || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     } as const;
 
     const result = await db.insert(tgUsers).values(insertData).returning();
